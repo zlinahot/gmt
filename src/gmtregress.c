@@ -728,7 +728,7 @@ GMT_LOCAL double gmtregress_LSxy_regress1D_basic (struct GMT_CTRL *GMT, double *
 	par[GMTREGRESS_SLOPE] = b[p];
 	par[GMTREGRESS_ICEPT] = a[p];
 	par[GMTREGRESS_SIGSL] = par[GMTREGRESS_SLOPE] * sqrt ((1.0 - r * r) / n) / r;
-	par[GMTREGRESS_SIGIC] = sqrt (pow (sig_y - sig_x * par[GMTREGRESS_SLOPE], 2.0) / n + (1.0 - r) * par[GMTREGRESS_SLOPE] * (2.0 * sig_x * sig_y + (mean_x * par[GMTREGRESS_SLOPE] * (1.0 + r) / (r * r))));
+	par[GMTREGRESS_SIGIC] = sqrt (pow (sig_y - sig_x * par[GMTREGRESS_SLOPE], 2.0) / n + (1.0 - r) * fabs (par[GMTREGRESS_SLOPE]) * (2.0 * sig_x * sig_y + (mean_x * par[GMTREGRESS_SLOPE] * (1.0 + r) / (r * r))));
 	par[GMTREGRESS_MISFT] = E[p];
 	par[GMTREGRESS_ANGLE] = atand (par[GMTREGRESS_SLOPE]);
 	par[GMTREGRESS_XMEAN] = mean_x;
@@ -743,10 +743,12 @@ GMT_LOCAL double gmtregress_LSxy_regress1D_basic (struct GMT_CTRL *GMT, double *
 GMT_LOCAL double gmtregress_LSRMA_regress1D (struct GMT_CTRL *GMT, double *x, double *y, double *w[], uint64_t n, double *par) {
 	/* Basic LS RMA orthogonal regression with no weights [Reference?] */
 	uint64_t k;
-	double sx, sy, scale, r, MSE, S_xx, mean_x, sig_x;
-	double *U = gmt_M_memory (GMT, NULL, n, double), *V = gmt_M_memory (GMT, NULL, n, double), *W = gmt_M_memory (GMT, NULL, n, double), *Q = gmt_M_memory (GMT, NULL, n, double);;
+	double sx, sy, scale, r, MSE, S_xx, mean_x, mean_y, sig_x, sig_y, p2, sum_Wu2, W_sum;
+	double *U = gmt_M_memory (GMT, NULL, n, double), *V = gmt_M_memory (GMT, NULL, n, double), *W = gmt_M_memory (GMT, NULL, n, double), *Q = gmt_M_memory (GMT, NULL, n, double);
+	double *alpha = gmt_M_memory (GMT, NULL, n, double), *beta = gmt_M_memory (GMT, NULL, n, double), *WX = gmt_M_memory (GMT, NULL, n, double), *WY = gmt_M_memory (GMT, NULL, n, double), *ww[3] = {NULL, NULL, NULL};
 	gmt_M_memset (par, GMTREGRESS_NPAR, double);
 	mean_x = gmt_mean_and_std (GMT, x, n, &sig_x);
+	mean_y = gmt_mean_and_std (GMT, y, n, &sig_y);
 	(void)gmtregress_demeaning (GMT, x, y, w, n, par, U, V, W, NULL, NULL);
 	r = gmt_corrcoeff (GMT, U, V, n, 1);
 	sx = gmt_std_weighted (GMT, U, w[GMT_X], 0.0, n);
@@ -755,21 +757,46 @@ GMT_LOCAL double gmtregress_LSRMA_regress1D (struct GMT_CTRL *GMT, double *x, do
 	if (r < 0.0) par[GMTREGRESS_SLOPE] = -par[GMTREGRESS_SLOPE];	/* Negative correlation means negative slope */
 	par[GMTREGRESS_ICEPT] = par[GMTREGRESS_YMEAN] - par[GMTREGRESS_SLOPE] * par[GMTREGRESS_XMEAN];
 	par[GMTREGRESS_ANGLE] = atand (par[GMTREGRESS_SLOPE]);
+
+	WX[0] = 1.0 / (sx * sx);
+	WY[0] = 1.0 / (sy * sy);
+	for (k = 0; k < n; k++)	{	/* Set new weights */
+		WX[k] = WX[0];
+		WY[k] = WY[0];
+	}
+	ww[GMT_X] = WX;	ww[GMT_Y] = WY;
+	W_sum = gmtregress_demeaning (GMT, x, y, ww, n, par, U, V, W, alpha, beta);	/* Sets the updated variables */
+	for (k = 0; k < n; k++)	/* Compute xi */
+		U[k] = par[GMTREGRESS_XMEAN] + beta[k];
+	mean_x = gmtregress_gmt_sum (U, n) / n;		/* Get mean_x */
+	for (k = 0; k < n; k++)	/* Compute ui */
+		U[k] -= mean_x;
+	sum_Wu2 = gmtregress_eval_sumprod3 (W, U, U, n);	/* Compute sum{W*u^2} */
+	par[GMTREGRESS_SIGSL] = 1.0 / sum_Wu2;	/* sigma_b^2 */
+	par[GMTREGRESS_SIGIC] = sqrt (1.0/W_sum + mean_x * mean_x * par[GMTREGRESS_SIGSL]);
+	par[GMTREGRESS_SIGSL] = sqrt (par[GMTREGRESS_SIGSL]);
 	for (k = 0; k < n; k++)	/* Here we recycle U as y-residual e */
 		U[k] = y[k] - gmtregress_model (x[k], par);
 	par[GMTREGRESS_MISFT] = gmtregress_L2_misfit (GMT, U, W, n, GMTREGRESS_RMA, par[GMTREGRESS_SLOPE]);
-	gmtregress_eval_product (U, U, Q, n);	/* Form Q[i] = U[i] * U[i] */
-	MSE = gmtregress_gmt_sum (Q, n) / n;	/* Get mean of u*u */
-	gmtregress_eval_product (x, x, Q, n);	/* Form x^2 */
-	S_xx = gmtregress_gmt_sum (Q, n);		/* Get Sxx */
-	par[GMTREGRESS_SIGSL] = sqrt (MSE/S_xx);
-	par[GMTREGRESS_SIGIC] = sqrt (MSE * (1/n + mean_x * mean_x / S_xx));
-
+	//gmtregress_eval_product (U, U, Q, n);	/* Form Q[i] = U[i] * U[i] */
+	//MSE = sqrt (gmtregress_gmt_sum (Q, n) / (n -2));	/* Get mean square of u*u */
+	//gmtregress_eval_product (x, x, Q, n);	/* Form x^2 */
+	//S_xx = gmtregress_gmt_sum (Q, n);		/* Get Sxx */
+	//par[GMTREGRESS_SIGSL] = sqrt (MSE / S_xx);
+	//par[GMTREGRESS_SIGIC] = sqrt (MSE * (1/n + mean_x * mean_x / S_xx));
+	//p2 = fabs (sig_y * sig_y + par[GMTREGRESS_SLOPE] * sig_x * sig_x);
+	//par[GMTREGRESS_SIGSL] = sqrt (p2 / S_xx);
+	//par[GMTREGRESS_SIGIC] = sqrt (p2 * (1.0/n + mean_x * mean_x / S_xx));
+	//fprintf (stderr, "r = %g MSE = %g\n", r, MSE);
+	//par[GMTREGRESS_SIGSL] = sqrt ((1 - r*r)/n);
+	//par[GMTREGRESS_SIGIC] = MSE * sqrt ((1 - r) * (2 + mean_x * mean_x * (1 + r) / (sx * sx)) / n);
 	scale = gmtregress_L2_scale (GMT, NULL, W, n, par);
 	gmt_M_free (GMT, U);
 	gmt_M_free (GMT, V);
 	gmt_M_free (GMT, W);
 	gmt_M_free (GMT, Q);
+	gmt_M_free (GMT, alpha);
+	gmt_M_free (GMT, beta);
 	return (scale);
 }
 
