@@ -12,8 +12,13 @@ Synopsis
 
 .. include:: common_SYN_OPTs.rst_
 
-**gmt grdhisteq** *in_grdfile* [ |-G|\ *out_grdfile* ]
-[ |-C|\ *n_cells* ] [ |-D|\ [*file*] ] [ |-N|\ [*norm*] ]
+**gmt grdhisteq**
+*in_grdfile*
+[ |-G|\ *out_grdfile* ]
+[ |-C|\ *n_cells* ]
+[ |-D|\ [*file*] ]
+[ |-F|\ [*file*] ]
+[ |-N|\ [*norm*] ]
 [ |-Q| ]
 |SYN_OPT-R|
 |SYN_OPT-V|
@@ -74,6 +79,13 @@ Optional Arguments
 
 **-D**\ [*file*]
     Dump level information to *file*, or standard output if no file is provided.
+
+.. _-F:
+
+**-F**\ *file*
+    Write the cumulative density function (CDF) represented by the grid
+    values to *file*.  Not available if **-N** is used.  For geographic grids
+    we give gridcells weights corresponding to their area.
 
 .. _-G:
 

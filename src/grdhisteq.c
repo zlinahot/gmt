@@ -46,6 +46,10 @@ struct GRDHISTEQ_CTRL {
 		bool active;
 		char *file;
 	} D;
+	struct GRDHISTEQ_F {	/* -F<file> */
+		bool active;
+		char *file;
+	} F;
 	struct GRDHISTEQ_G {	/* -G<file> */
 		bool active;
 		char *file;
@@ -85,6 +89,7 @@ static void Free_Ctrl (struct GMT_CTRL *GMT, struct GRDHISTEQ_CTRL *C) {	/* Deal
 	if (!C) return;
 	gmt_M_str_free (C->In.file);
 	gmt_M_str_free (C->D.file);
+	gmt_M_str_free (C->F.file);
 	gmt_M_str_free (C->G.file);
 	gmt_M_free (GMT, C);
 }
@@ -92,7 +97,7 @@ static void Free_Ctrl (struct GMT_CTRL *GMT, struct GRDHISTEQ_CTRL *C) {	/* Deal
 static int usage (struct GMTAPI_CTRL *API, int level) {
 	const char *name = gmt_show_name_and_purpose (API, THIS_MODULE_LIB, THIS_MODULE_CLASSIC_NAME, THIS_MODULE_PURPOSE);
 	if (level == GMT_MODULE_PURPOSE) return (GMT_NOERROR);
-	GMT_Message (API, GMT_TIME_NONE, "usage: %s <ingrid> [-G<outgrid>] [-C[<n_cells>]] [-D[<table>]] [-N[<norm>]] [-Q]\n", name);
+	GMT_Message (API, GMT_TIME_NONE, "usage: %s <ingrid> [-G<outgrid>] [-C[<n_cells>]] [-D[<table>]] [-F<file>] [-N[<norm>]] [-Q]\n", name);
 	GMT_Message (API, GMT_TIME_NONE, "\t[%s] [%s] [%s] [%s]\n\n", GMT_Rgeo_OPT, GMT_V_OPT, GMT_ho_OPT, GMT_PAR_OPT);
 
 	if (level == GMT_SYNOPSIS) return (GMT_MODULE_SYNOPSIS);
@@ -101,6 +106,7 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	GMT_Message (API, GMT_TIME_NONE, "\n\tOPTIONS:\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-C Set how many cells (divisions) of data range to make [16].\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-D Dump level information to <table> or stdout if not given.\n");
+	GMT_Message (API, GMT_TIME_NONE, "\t-F Write the [weighted] CDF curve to <file>. Not compatible with -N.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-G Create an equalized output grid file called <outgrid>.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-N Use with -G to make an output grid file with standard normal scores.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t   Append <norm> to normalize the scores to <-1,+1>.\n");
@@ -144,6 +150,10 @@ static int parse (struct GMT_CTRL *GMT, struct GRDHISTEQ_CTRL *Ctrl, struct GMT_
 				Ctrl->D.active = true;
 				if (opt->arg[0]) Ctrl->D.file = strdup (opt->arg);
 				break;
+			case 'F':	/* Write CDF to file */
+				Ctrl->F.active = true;
+				if (opt->arg[0]) Ctrl->F.file = strdup (opt->arg);
+				break;
 			case 'G':	/* Output file for equalized grid */
 				Ctrl->G.active = true;
 				if (opt->arg[0]) Ctrl->G.file = strdup (opt->arg);
@@ -165,6 +175,8 @@ static int parse (struct GMT_CTRL *GMT, struct GRDHISTEQ_CTRL *Ctrl, struct GMT_
 
 	n_errors += gmt_M_check_condition (GMT, n_files > 1, "Must specify a single input grid file\n");
 	n_errors += gmt_M_check_condition (GMT, !Ctrl->In.file, "Must specify input grid file\n");
+	n_errors += gmt_M_check_condition (GMT, Ctrl->F.active && !Ctrl->F.file, "Option -F: Must also specify output file for CDF table\n");
+	n_errors += gmt_M_check_condition (GMT, Ctrl->N.active && Ctrl->F.active, "Option -F: Cannot be used with -N\n");
 	n_errors += gmt_M_check_condition (GMT, Ctrl->N.active && !Ctrl->G.active, "Option -N: Must also specify output grid file with -G\n");
 	n_errors += gmt_M_check_condition (GMT, Ctrl->N.active && Ctrl->Q.active, "Option -N: Cannot be combined with -Q\n");
 	n_errors += gmt_M_check_condition (GMT, Ctrl->C.active && Ctrl->C.value <= 0, "Option -C: n_cells must be positive\n");
@@ -203,7 +215,7 @@ GMT_LOCAL gmt_grdfloat grdhisteq_get_cell (gmt_grdfloat x, struct GRDHISTEQ_CELL
 	return (0.0f);	/* Cannot get here - just used to quiet compiler */
 }
 
-GMT_LOCAL int grdhisteq_do_hist_equalization_cart (struct GMT_CTRL *GMT, struct GMT_GRID *Grid, char *outfile, unsigned int n_cells, bool quadratic, bool dump_intervals) {
+GMT_LOCAL int grdhisteq_do_hist_equalization_cart (struct GMT_CTRL *GMT, struct GMT_GRID *Grid, char *outfile, unsigned int n_cells, bool quadratic, bool dump_intervals, struct GMT_DATASET **cdf) {
 	/* Do basic Cartesian histogram equalization */
 	uint64_t i, j, nxy;
 	unsigned int n_cells_m1 = 0, current_cell, pad[4];
@@ -211,6 +223,7 @@ GMT_LOCAL int grdhisteq_do_hist_equalization_cart (struct GMT_CTRL *GMT, struct 
 	struct GRDHISTEQ_CELL *cell = NULL;
 	struct GMT_GRID *Orig = NULL;
 	struct GMT_RECORD *Out = NULL;
+	struct GMT_DATASET *D = NULL;
 
 	cell = gmt_M_memory (GMT, NULL, n_cells, struct GRDHISTEQ_CELL);
 
@@ -229,6 +242,22 @@ GMT_LOCAL int grdhisteq_do_hist_equalization_cart (struct GMT_CTRL *GMT, struct 
 
 	nxy = Grid->header->nm;
 	while (nxy > 0 && gmt_M_is_fnan (Grid->data[nxy-1])) nxy--;	/* Only deal with real numbers */
+
+	if (cdf) {	/* Must return a dataset with the CDF */
+		uint64_t dim[4] = {1, 1, nxy, 2};	/* Simple table */
+		double d_cdf = 1.0 / nxy;
+		if ((D = GMT_Create_Data (GMT->parent, GMT_IS_DATASET, GMT_IS_POINT, 0, dim, NULL, NULL, 0, 0, NULL)) == NULL) {
+			GMT_Report (GMT->parent, GMT_MSG_ERROR, "Unable to create empty dataset for CDF\n");
+		}
+		else {
+			GMT_Report (GMT->parent, GMT_MSG_INFORMATION, "Building CDF from Cartesian grid values\n");
+			for (i = 0; i < nxy; i++) {	/* Copy since float to double */
+				D->table[0]->segment[0]->data[GMT_X][i] = Grid->data[i];
+				D->table[0]->segment[0]->data[GMT_Y][i] = (i + 1) * d_cdf;
+			}
+			*cdf = D;
+		}
+	}
 
 	Out = gmt_new_record (GMT, out, NULL);	/* Since we only need to worry about numerics in this module */
 	n_cells_m1 = n_cells - 1;
@@ -278,15 +307,16 @@ GMT_LOCAL int grdhisteq_do_hist_equalization_cart (struct GMT_CTRL *GMT, struct 
 	return (0);
 }
 
-GMT_LOCAL int grdhisteq_do_hist_equalization_geo (struct GMT_CTRL *GMT, struct GMT_GRID *Grid, char *outfile, unsigned int n_cells, bool quadratic, bool dump_intervals) {
+GMT_LOCAL int grdhisteq_do_hist_equalization_geo (struct GMT_CTRL *GMT, struct GMT_GRID *Grid, char *outfile, unsigned int n_cells, bool quadratic, bool dump_intervals, struct GMT_DATASET **cdf) {
 	/* Do basic area-weighted histogram equalization */
 	uint64_t i, j, node, nxy = 0;
 	unsigned int n_cells_m1 = 0, current_cell, row, col;
-	double cell_w, delta_w, target_w, wsum = 0.0, out[3];
+	double cell_w, delta_w, target_w, wsum = 0.0, scale, out[3];
 	struct GRDHISTEQ_CELL *cell = gmt_M_memory (GMT, NULL, n_cells, struct GRDHISTEQ_CELL);
 	struct GMT_GRID *W = gmt_duplicate_grid (GMT, Grid, GMT_DUPLICATE_ALLOC);
 	struct GMT_OBSERVATION *pair = gmt_M_memory (GMT, NULL, Grid->header->nm, struct GMT_OBSERVATION);
 	struct GMT_RECORD *Out = NULL;
+	struct GMT_DATASET *D = NULL;
 
 	/* Determine the area weights */
 	gmt_get_cellarea (GMT, W);
@@ -302,11 +332,28 @@ GMT_LOCAL int grdhisteq_do_hist_equalization_geo (struct GMT_CTRL *GMT, struct G
 	/* Sort observations on z */
 	qsort (pair, nxy, sizeof (struct GMT_OBSERVATION), gmtlib_compare_observation);
 	/* Compute normalized cumulative weights */
-	wsum = 1.0 / wsum;	/* Do avoid division later */
-	pair[0].weight *= (gmt_grdfloat)wsum;
+	scale = 1.0 / wsum;	/* Do avoid division later */
+	pair[0].weight *= (gmt_grdfloat)scale;
+	wsum = pair[0].weight;
 	for (i = 1; i < nxy; i++) {
-		pair[i].weight *= (gmt_grdfloat)wsum;
-		pair[i].weight += pair[i-1].weight;
+		pair[i].weight *= (gmt_grdfloat)scale;
+		wsum += pair[i].weight;
+		pair[i].weight = wsum;
+	}
+
+	if (cdf) {	/* Must return a dataset with the CDF */
+		uint64_t dim[4] = {1, 1, nxy, 2};	/* Simple table */
+		if ((D = GMT_Create_Data (GMT->parent, GMT_IS_DATASET, GMT_IS_POINT, 0, dim, NULL, NULL, 0, 0, NULL)) == NULL) {
+			GMT_Report (GMT->parent, GMT_MSG_ERROR, "Unable to create empty dataset for CDF\n");
+		}
+		else {
+			GMT_Report (GMT->parent, GMT_MSG_INFORMATION, "Building area-weighted CDF from geographic grid values\n");
+			for (i = 0; i < nxy; i++) {	/* Copy since float to double */
+				D->table[0]->segment[0]->data[GMT_X][i] = pair[i].value;
+				D->table[0]->segment[0]->data[GMT_Y][i] = pair[i].weight;
+			}
+			*cdf = D;
+		}
 	}
 
 	/* Find the division points using the normalized 0-1 weights */
@@ -359,12 +406,12 @@ GMT_LOCAL int grdhisteq_do_hist_equalization_geo (struct GMT_CTRL *GMT, struct G
 	return (0);
 }
 
-GMT_LOCAL int grdhisteq_do_hist_equalization (struct GMT_CTRL *GMT, struct GMT_GRID *Grid, char *outfile, unsigned int n_cells, bool quadratic, bool dump_intervals) {
+GMT_LOCAL int grdhisteq_do_hist_equalization (struct GMT_CTRL *GMT, struct GMT_GRID *Grid, char *outfile, unsigned int n_cells, bool quadratic, bool dump_intervals, struct GMT_DATASET **cdf) {
 	int err = 0;
 	if (gmt_M_is_geographic (GMT, GMT_IN))
-		err = grdhisteq_do_hist_equalization_geo (GMT, Grid, outfile, n_cells, quadratic, dump_intervals);
+		err = grdhisteq_do_hist_equalization_geo (GMT, Grid, outfile, n_cells, quadratic, dump_intervals, cdf);
 	else
-		err = grdhisteq_do_hist_equalization_cart (GMT, Grid, outfile, n_cells, quadratic, dump_intervals);
+		err = grdhisteq_do_hist_equalization_cart (GMT, Grid, outfile, n_cells, quadratic, dump_intervals, cdf);
 	return (err);
 }
 
@@ -476,6 +523,8 @@ EXTERN_MSC int GMT_grdhisteq (void *V_API, int mode, void *args) {
 	if (Ctrl->N.active)
 		grdhisteq_do_gaussian_scores (GMT, Out, Ctrl->N.norm);
 	else {
+		struct GMT_DATASET *cdf = NULL;
+		void *d_ptr = NULL;
 		if (Ctrl->D.active) {	/* Initialize file/stdout for table output */
 			int out_ID;
 			/* Must register Ctrl->D.file first since we are going to writing rec-by-rec */
@@ -495,8 +544,14 @@ EXTERN_MSC int GMT_grdhisteq (void *V_API, int mode, void *args) {
 				Return (API->error);
 			}
 		}
-		if ((error = grdhisteq_do_hist_equalization (GMT, Out, Ctrl->G.file, Ctrl->C.value, Ctrl->Q.active, Ctrl->D.active)) != 0) Return (GMT_RUNTIME_ERROR);	/* Read error */
+		if (Ctrl->F.active) d_ptr = &cdf;
+		if ((error = grdhisteq_do_hist_equalization (GMT, Out, Ctrl->G.file, Ctrl->C.value, Ctrl->Q.active, Ctrl->D.active, d_ptr)) != 0) Return (GMT_RUNTIME_ERROR);	/* Read error */
 		/* grdhisteq_do_hist_equalization will also call GMT_End_IO if Ctrl->D.active was true */
+		if (Ctrl->F.active) {
+			if (GMT_Write_Data (API, GMT_IS_DATASET, GMT_IS_FILE, GMT_IS_POINT, 0, NULL, Ctrl->F.file, cdf) != GMT_NOERROR) {
+				Return (API->error);
+			}			
+		}
 	}
 	if (Ctrl->G.active) {
 		if (GMT_Set_Comment (API, GMT_IS_GRID, GMT_COMMENT_IS_OPTION | GMT_COMMENT_IS_COMMAND, options, Out)) Return (API->error);
