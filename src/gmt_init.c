@@ -3792,7 +3792,7 @@ GMT_LOCAL int gmtinit_parse4_B_option (struct GMT_CTRL *GMT, char *in) {
 			if (i == GMT_Z)
 				GMT->current.map.frame.drawz = true;
 			else
-				GMT->current.map.frame.draw = true;
+				GMT->current.map.frame.draw = GMT->current.map.frame.basemap = true;
 			continue;
 		}
 
@@ -4260,7 +4260,10 @@ GMT_LOCAL int gmtinit_parse5_B_option (struct GMT_CTRL *GMT, char *in) {
 	if (text[k]) mod = &text[k];		/* mod points to the start of the modifier information in text*/
 	for (no = 0; no < 3; no++) {		/* Process each axis separately */
 		if (!side[no]) continue;	/* Except we did not specify this axis */
-		if (no == GMT_Z) GMT->current.map.frame.drawz = true;
+		if (no == GMT_Z)
+			GMT->current.map.frame.drawz = true;
+		else
+			GMT->current.map.frame.basemap = true;
 		if (!text[0]) continue;	 	/* Skip any empty format string */
 		if (text[0] == '0' && !text[1]) {	 /* Understand format '0' to mean "no annotation, ticks, or gridlines" */
 			GMT->current.map.frame.draw = GMT->current.map.frame.drawz = true;	/* But we do wish to draw the frame */

@@ -2544,7 +2544,7 @@ GMT_LOCAL void gmtplot_map_annotate (struct GMT_CTRL *GMT, struct PSL_CTRL *PSL,
 
 GMT_LOCAL void gmtplot_map_boundary (struct GMT_CTRL *GMT, struct PSL_CTRL *PSL, double w, double e, double s, double n) {
 	if (!GMT->current.map.frame.draw && GMT->current.proj.projection_GMT != GMT_LINEAR) return;	/* We have a separate check in linear_map_boundary */
-	if (GMT->current.map.frame.no_frame) return;	/* Specifically did not want frame */
+	if (GMT->current.map.frame.no_frame || !GMT->current.map.frame.basemap) return;	/* Specifically did not want frame */
 
 	PSL_comment (PSL, "Map boundaries\n");
 
