@@ -1914,7 +1914,7 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 	if (registration & GMT_GRID_DEFAULT_REG) registration |= GMT->common.R.registration;	/* Set the default registration */
 	registration = (registration & 1);	/* Knock off any GMT_GRID_DEFAULT_REG bit */
 	if (dim && (wesn == NULL || (gmt_M_is_zero (wesn[XLO]) && gmt_M_is_zero (wesn[XHI]) && gmt_M_is_zero (wesn[YLO]) && gmt_M_is_zero (wesn[YHI]))) && (inc == NULL || (gmt_M_is_zero (inc[GMT_X]) && gmt_M_is_zero (inc[GMT_Y])))) {	/* Gave dimension instead, set range and inc (1/1) while considering registration */
-		gmt_M_memset (wesn_dup, 4, double);
+		gmt_M_memset (wesn_dup, GMT->common.R.dimension * 2, double);
 		wesn_dup[XHI] = (double)(dim[GMT_X]);
 		wesn_dup[YHI] = (double)(dim[GMT_Y]);
 		inc_dup[GMT_X] = inc_dup[GMT_Y] = 1.0;
@@ -1931,7 +1931,7 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 			}
 		}
 		else	/* In case user is passing header->wesn etc we must save them first as gmt_grd_init will clobber them */
-			gmt_M_memcpy (wesn_dup, wesn, 4, double);
+			gmt_M_memcpy (wesn_dup, wesn, GMT->common.R.dimension * 2, double);
 		if (inc == NULL) {	/* Must select -I setting */
 			if (!GMT->common.R.active[ISET]) {
 				GMT_Report (GMT->parent, GMT_MSG_ERROR, "No increment given and no -I in effect.  Cannot initialize new grid\n");
@@ -1939,7 +1939,7 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 			}
 		}
 		else	/* In case user is passing header->inc etc we must save them first as gmt_grd_init will clobber them */
-			gmt_M_memcpy (inc_dup, inc, 2, double);
+			gmt_M_memcpy (inc_dup, inc, GMT->common.R.dimension, double);
 		if (dim && dim[GMT_Z] > 1) n_layers = (unsigned int)dim[GMT_Z];
 		if (inc != NULL) {
 			GMT_Report (GMT->parent, GMT_MSG_DEBUG, "Grid/Image dimensions imply w/e/s/n = %g/%g/%g/%g, inc = %g/%g, %s registration, n_layers = %u\n",
@@ -1966,6 +1966,15 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 	gmt_M_err_pass (GMT, gmt_grd_RI_verify (GMT, header, 1), "");
 	gmt_M_grd_setpad (GMT, header, GMT->current.io.pad);	/* Assign default GMT pad */
 	if (dim) header->n_bands = n_layers;
+	if (GMT->common.R.dimension == 3 && GMT->common.R.inc[GMT_Z] > 0.0) {	/* Compute number of layers from equidistant z-range */
+		if (wesn == NULL)
+			n_layers = gmt_M_get_n (API->GMT, GMT->common.R.wesn[ZLO], GMT->common.R.wesn[ZHI], GMT->common.R.inc[GMT_Z], 0.0);
+		else
+			n_layers = gmt_M_get_n (API->GMT, wesn[ZLO], wesn[ZHI], GMT->common.R.inc[GMT_Z], 0.0);
+		header->n_layers = n_layers;
+	}
+	else
+		header->n_layers = 1;
 	gmt_set_grddim (GMT, header);	/* Set all dimensions before returning */
 	gmtlib_grd_get_units (GMT, header);
 	gmt_BC_init (GMT, header);	/* Initialize grid interpolation and boundary condition parameters */

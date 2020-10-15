@@ -6881,7 +6881,7 @@ void gmt_freepen (struct GMT_CTRL *GMT, struct GMT_PEN *P) {
 bool gmt_getinc (struct GMT_CTRL *GMT, char *line, double inc[]) {
 	/* Special case of getincn use where n is two. */
 
-	int n;
+	int n, n_def = (GMT->common.R.dimension) ? GMT->common.R.dimension : 2;
 
 	/* Syntax: -I<xinc>[m|s|e|f|k|M|n|u|+e|n][/<yinc>][m|s|e|f|k|M|n|u|+e|n]
 	 * Units: d = arc degrees
@@ -6899,7 +6899,7 @@ bool gmt_getinc (struct GMT_CTRL *GMT, char *line, double inc[]) {
 
 	if (!line) { GMT_Report (GMT->parent, GMT_MSG_ERROR, "No argument given to gmt_getinc\n"); return (true); }
 
-	if ((n = gmt_getincn (GMT, line, inc, 2)) < 0) return true;
+	if ((n = gmt_getincn (GMT, line, inc, n_def)) < 0) return true;
 	if (n == 1) {	/* Must copy y info from x */
 		inc[GMT_Y] = inc[GMT_X];
 		GMT->current.io.inc_code[GMT_Y] = GMT->current.io.inc_code[GMT_X];	/* Use exact inc codes for both x and y */

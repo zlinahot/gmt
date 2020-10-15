@@ -385,7 +385,7 @@ enum GMT_enum_grdlen {
 struct GMT_GRID_HEADER {
 	/* Variables we document for the API:
 	 * == Do not change the type of the following three items.
-	 * == They are copied verbatim to the native grid header and must be 4-byte unsigned ints. */
+	 * == They are copied verbatim to the native grid header and must be 4-byte unsigned integers */
 	uint32_t n_columns;              /* Number of columns */
 	uint32_t n_rows;                 /* Number of rows */
 	uint32_t registration;           /* GMT_GRID_NODE_REG (0) for node grids, GMT_GRID_PIXEL_REG (1) for pixel grids */
@@ -399,27 +399,30 @@ struct GMT_GRID_HEADER {
 	double z_min;                          /* Minimum z value */
 	double z_max;                          /* Maximum z value */
 	double inc[2];                         /* x and y increment */
-	double z_scale_factor;                 /* grd values must be multiplied by this */
+	double z_scale_factor;                 /* grid values must be multiplied by this */
 	double z_add_offset;                   /* After scaling, add this */
 	char x_units[GMT_GRID_UNIT_LEN80];     /* units in x-direction */
 	char y_units[GMT_GRID_UNIT_LEN80];     /* units in y-direction */
 	char z_units[GMT_GRID_UNIT_LEN80];     /* grid value units */
 	char title[GMT_GRID_TITLE_LEN80];      /* name of data set */
 	char command[GMT_GRID_COMMAND_LEN320]; /* name of generating command */
-	char remark[GMT_GRID_REMARK_LEN160];   /* comments re this data set */
+	char remark[GMT_GRID_REMARK_LEN160];   /* comments regarding this data set */
 
 	/* Items not stored in the data file for grids but explicitly used in macros computing node numbers */
 	size_t nm;                  /* Number of data items in this grid (n_columns * n_rows) [padding is excluded] */
 	size_t size;                /* Actual number of items (not bytes) required to hold this grid (= mx * my), per band (for images) */
-	unsigned int bits;          /* Bits per data value (e.g., 32 for ints/floats; 8 for bytes) */
-	unsigned int complex_mode;  /* 0 = normal, GMT_GRID_IS_COMPLEX_REAL = real part of complex grid, GMT_GRID_IS_COMPLEX_IMAG = imag part of complex grid */
+	uint32_t n_layers;          /* Number of layers in a 3-D data cube [1] */
+	unsigned int bits;          /* Bits per data value (e.g., 32 for integers/floats; 8 for bytes) */
+	unsigned int complex_mode;  /* 0 = normal, GMT_GRID_IS_COMPLEX_REAL = real part of complex grid, GMT_GRID_IS_COMPLEX_IMAG = imaginary part of complex grid */
 	unsigned int type;          /* Grid format */
+	unsigned int layer_type;    /* Layer dimension data type [GMT_FLOAT] */
 	unsigned int n_bands;       /* Number of bands [1]. Used with IMAGE containers and macros to get ij index from row,col, band */
 	unsigned int mx, my;        /* Actual dimensions of the grid in memory, allowing for the padding */
 	unsigned int pad[4];        /* Padding on west, east, south, north sides [2,2,2,2] */
-	char   mem_layout[4];       /* Three or Four char codes T|B R|C S|R|S (grd) or B|L|P + A|a (img) describing array layout in mem and interleaving */
-	gmt_grdfloat  nan_value;    /* Missing value as stored in grid file */
+	char mem_layout[4];         /* Three or Four char codes T|B R|C S|R|S (grid) or B|L|P + A|a (img) describing array layout in memory and interleaving */
+	gmt_grdfloat nan_value;     /* Missing value as stored in grid file */
 	double xy_off;              /* 0.0 (registration == GMT_GRID_NODE_REG) or 0.5 ( == GMT_GRID_PIXEL_REG) */
+	double *layer;              /* Array with layer levels for 3-D cubes [NULL] */
 	char *ProjRefPROJ4;         /* To store a referencing system string in PROJ.4 format */
 	char *ProjRefWKT;           /* To store a referencing system string in WKT format */
 	int ProjRefEPSG;            /* To store a referencing system EPSG code */
