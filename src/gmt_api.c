@@ -1905,8 +1905,8 @@ GMT_LOCAL unsigned int gmtapi_decode_layout (struct GMTAPI_CTRL *API, const char
 GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int direction, struct GMT_GRID_HEADER *header, struct GMT_OPTION *options,
                              uint64_t dim[], double wesn[], double inc[], unsigned int registration, unsigned int mode) {
 	/* Convenient way of setting a header struct wesn, inc, and registration, then compute dimensions, etc. */
-	double wesn_dup[4] = {0.0, 0.0, 0.0, 0.0}, inc_dup[2] = {0.0, 0.0};
-	unsigned int n_layers = 1;
+	double wesn_dup[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, inc_dup[3] = {0.0, 0.0, 0.0};
+	unsigned int n_layers = 1, n_dim_def = (GMT->common.R.dimension) ? GMT->common.R.dimension : 2;	/* Set grid dimension if we know it - else choose 2 */
 	char *regtype[2] = {"gridline", "pixel"};
 	struct GMT_GRID_HEADER_HIDDEN *HH = gmt_get_H_hidden (header);
 	gmt_M_unused(mode);
@@ -1914,7 +1914,7 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 	if (registration & GMT_GRID_DEFAULT_REG) registration |= GMT->common.R.registration;	/* Set the default registration */
 	registration = (registration & 1);	/* Knock off any GMT_GRID_DEFAULT_REG bit */
 	if (dim && (wesn == NULL || (gmt_M_is_zero (wesn[XLO]) && gmt_M_is_zero (wesn[XHI]) && gmt_M_is_zero (wesn[YLO]) && gmt_M_is_zero (wesn[YHI]))) && (inc == NULL || (gmt_M_is_zero (inc[GMT_X]) && gmt_M_is_zero (inc[GMT_Y])))) {	/* Gave dimension instead, set range and inc (1/1) while considering registration */
-		gmt_M_memset (wesn_dup, GMT->common.R.dimension * 2, double);
+		gmt_M_memset (wesn_dup, n_dim_def * 2, double);
 		wesn_dup[XHI] = (double)(dim[GMT_X]);
 		wesn_dup[YHI] = (double)(dim[GMT_Y]);
 		inc_dup[GMT_X] = inc_dup[GMT_Y] = 1.0;
@@ -1931,7 +1931,7 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 			}
 		}
 		else	/* In case user is passing header->wesn etc we must save them first as gmt_grd_init will clobber them */
-			gmt_M_memcpy (wesn_dup, wesn, GMT->common.R.dimension * 2, double);
+			gmt_M_memcpy (wesn_dup, wesn, n_dim_def * 2, double);
 		if (inc == NULL) {	/* Must select -I setting */
 			if (!GMT->common.R.active[ISET]) {
 				GMT_Report (GMT->parent, GMT_MSG_ERROR, "No increment given and no -I in effect.  Cannot initialize new grid\n");
@@ -1939,7 +1939,7 @@ GMT_LOCAL int gmtapi_init_grdheader (struct GMT_CTRL *GMT, unsigned int directio
 			}
 		}
 		else	/* In case user is passing header->inc etc we must save them first as gmt_grd_init will clobber them */
-			gmt_M_memcpy (inc_dup, inc, GMT->common.R.dimension, double);
+			gmt_M_memcpy (inc_dup, inc, n_dim_def, double);
 		if (dim && dim[GMT_Z] > 1) n_layers = (unsigned int)dim[GMT_Z];
 		if (inc != NULL) {
 			GMT_Report (GMT->parent, GMT_MSG_DEBUG, "Grid/Image dimensions imply w/e/s/n = %g/%g/%g/%g, inc = %g/%g, %s registration, n_layers = %u\n",

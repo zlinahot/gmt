@@ -111,7 +111,7 @@ struct GMT_COMMON {
 		unsigned int dimension;	/* 2 for 2-D grid regions, 3 for 3-D regions */
 		double wesn[6];		/* Boundaries of west, east, south, north, low-z and hi-z */
 		double wesn_orig[4];	/* Original Boundaries of west, east, south, north (oblique projection may reset wesn above) */
-		double inc[2];	/* For grid increments set via -Idx/dy or implicitly via -Ggrid */
+		double inc[3];	/* For grid increments set via -Idx/dy or implicitly via -Ggrid */
 		char string[GMT_LEN256];
 	} R;
 	struct U {	/* -U */
