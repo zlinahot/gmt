@@ -982,6 +982,26 @@ GMT_LOCAL void psconvert_possibly_fill_or_outline_BB (struct GMT_CTRL *GMT, stru
 	}
 }
 
+GMT_LOCAL void 	psconvert_round_BB (struct GMT_CTRL *GMT, double *x0, double *x1, double *y0, double *y1) {
+	/* Adjust the high-res bounding box values outwards to next multiple of our integer PS unit precision,
+	 * which is 1/PSL_DOTS_PER_INCH. This avoids any truncation near the BoundingBox but may leave a tiny
+	 * white sliver < the precision. */
+	double precision = 1.0 / PSL_DOTS_PER_INCH, old_x0, old_y0, old_x1, old_y1, w, h, w_old, h_old;
+
+	old_x0 = *x0;	old_y0 = *y0;
+	old_x1 = *x1;	old_y1 = *y1;
+	w_old = old_x1 - old_x0;	h_old = old_y1 - old_y0;
+
+	*x0 = floor (*x0 / precision) * precision;
+	*y0 = floor (*y0 / precision) * precision;
+	*x1 = ceil  (*x1 / precision) * precision;
+	*y1 = ceil  (*y1 / precision) * precision;
+	w = *x1 - *x0;	h = *y1 - *y0;
+
+	GMT_Report (GMT->parent, GMT_MSG_INFORMATION, "Adjusted HighResBoundingBox from %.6f/%.6f/%.6f/%.6f to %.6f/%.6f/%.6f/%.6f\n", old_x0, old_y0, old_x1, old_y1, *x0, *y0, *x1, *y1);
+	GMT_Report (GMT->parent, GMT_MSG_INFORMATION, "Adjusted Dimensions from %.6f by %.6f to %.6f by %.6f\n", w_old, h_old, w, h);
+}
+
 /* ---------------------------------------------------------------------------------------------- */
 GMT_LOCAL int psconvert_pipe_HR_BB(struct GMTAPI_CTRL *API, struct PSCONVERT_CTRL *Ctrl, char *gs_BB, double margin, double *w, double *h) {
 	/* Do what we do in the main code for the -A (if used here) option but on an in-memory PS 'file' */
@@ -1066,6 +1086,8 @@ GMT_LOCAL int psconvert_pipe_HR_BB(struct GMTAPI_CTRL *API, struct PSCONVERT_CTR
 	if (pch != NULL) landscape = true;
 	PS->data[500] = c;				/* Restore the deleted character */
 
+	psconvert_round_BB (API->GMT, &x0, &x1, &y0, &y1);
+
 	if (Ctrl->A.crop) {
 		if (landscape)					/* We will need these in psconvert_pipe_ghost() */
 			xt = -x1, yt = -y0, *w = y1-y0, *h = x1-x0, r = -90;
@@ -1102,7 +1124,7 @@ GMT_LOCAL int psconvert_pipe_HR_BB(struct GMTAPI_CTRL *API, struct PSCONVERT_CTR
 	else
 		GMT_Report (API, GMT_MSG_ERROR, "Something very odd the GMT PS does not have a %%BoundingBox\n");
 
-	sprintf (buf, "HiResBoundingBox: 0 0 %.4f %.4f", *w, *h);
+	sprintf (buf, "HiResBoundingBox: 0 0 %.6f %.6f", *w, *h);
 	if ((pch = strstr(PS->data, "HiResBoundingBox")) != NULL) {	/* Find where is the HiResBB */
 		for (n = 0; n < strlen(buf); n++)                       /* and update it */
 			pch[n] = buf[n];
@@ -1999,6 +2021,8 @@ EXTERN_MSC int GMT_psconvert (void *V_API, int mode, void *args) {
 
 		/* Do the math on the BoundingBox and translation coordinates */
 
+		psconvert_round_BB (GMT, &x0, &x1, &y0, &y1);
+
 		if ((Ctrl->P.active && landscape) || (landscape && Ctrl->A.crop))
 			xt = -x1, yt = -y0, w = y1-y0, h = x1-x0, r = -90;
 		else
@@ -2092,7 +2116,7 @@ EXTERN_MSC int GMT_psconvert (void *V_API, int mode, void *args) {
 				if (file_has_HRBB)
 					continue;	/* High-res BB will be put elsewhere */
 				if (got_HRBB)
-					fprintf (fpo, "%%%%HiResBoundingBox: 0 0 %.4f %.4f\n", w_t, h_t);
+					fprintf (fpo, "%%%%HiResBoundingBox: 0 0 %.6f %.6f\n", w_t, h_t);
 				got_HRBB = false;
 				continue;
 			}
@@ -2103,7 +2127,7 @@ EXTERN_MSC int GMT_psconvert (void *V_API, int mode, void *args) {
 					w_t = Ctrl->A.new_size[0];		h_t = Ctrl->A.new_size[1];
 				}
 				if (got_HRBB)
-					fprintf (fpo, "%%%%HiResBoundingBox: 0 0 %.4f %.4f\n", w_t, h_t);
+					fprintf (fpo, "%%%%HiResBoundingBox: 0 0 %.6f %.6f\n", w_t, h_t);
 				got_HRBB = false;
 				continue;
 			}
@@ -2117,11 +2141,11 @@ EXTERN_MSC int GMT_psconvert (void *V_API, int mode, void *args) {
 			else if (!strncmp (line, "%%EndSetup", 10)) {
 				setup = false;
 				if (Ctrl->T.eps == -1)	/* Write out setpagedevice command */
-					fprintf (fpo, "<< /PageSize [%g %g] >> setpagedevice\n", w, h);
+					fprintf (fpo, "<< /PageSize [%.6f %.6f] >> setpagedevice\n", w, h);
 				if (r != 0)
 					fprintf (fpo, "%d rotate\n", r);
 				if (!gmt_M_is_zero (xt) || !gmt_M_is_zero (yt))
-					fprintf (fpo, "%g %g translate\n", xt, yt);
+					fprintf (fpo, "%.6f %.6f translate\n", xt, yt);
 				xt = yt = 0.0;
 				r = 0;
 			}
