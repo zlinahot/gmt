@@ -989,7 +989,7 @@ GMT_LOCAL void psconvert_possibly_fill_or_outline_BB (struct GMT_CTRL *GMT, stru
 
 GMT_LOCAL void 	psconvert_round_BB (struct GMT_CTRL *GMT, double *x0, double *x1, double *y0, double *y1) {
 	/* Adjust the high-res bounding box values outwards to next multiple of our integer PS unit precision,
-	 * which is 1/PSL_DOTS_PER_INCH. This avoids any truncation near the BoundingBox but may leave a tiny
+	 * which is 1/PSL_DOTS_PER_INCH. This should avoid any truncation near the BoundingBox but may leave a tiny
 	 * white sliver < the precision. */
 	double precision = 1.0 / PSL_DOTS_PER_INCH, old_x0, old_y0, old_x1, old_y1, w, h, w_old, h_old;
 
