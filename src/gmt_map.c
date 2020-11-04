@@ -6580,7 +6580,7 @@ GMT_LOCAL double gmtmap_auto_time_increment (double inc, char *unit) {
 void gmt_auto_frame_interval (struct GMT_CTRL *GMT, unsigned int axis, unsigned int item) {
 	/* Determine the annotation and frame tick interval when they are not set (interval = 0) */
 	int i = 0, n = 6;
-	char unit = 's', sunit[2], tmp[GMT_LEN16] = {""}, string[GMT_LEN64] = {""}, par[GMT_LEN128] = {""}, ax_code[4] = "xyz";
+	char unit = 's', sunit[2] = {""}, tmp[GMT_LEN16] = {""}, string[GMT_LEN64] = {""}, par[GMT_LEN128] = {""}, ax_code[4] = "xyz";
 	bool set_a = false, interval = false, is_time = gmt_M_axis_is_time (GMT, axis);
 	double defmaj[7] = {2.0, 5.0, 10.0, 15.0, 30.0, 60.0, 90.0}, defsub[7] = {1.0, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0};
 	double Hmaj[4] = {2.0, 3.0, 6.0, 12.0}, Hsub[4] = {1.0, 1.0, 3.0, 3.0};
@@ -9575,8 +9575,8 @@ unsigned int gmt_init_distaz (struct GMT_CTRL *GMT, char unit, unsigned int mode
 			else
 				err = gmtmap_set_distaz (GMT, GMT_CARTESIAN_DIST, type, "");
 			break;
-		case 'C':	/* Cartesian distances (in PROJ_LENGTH_UNIT) after first projecting input coordinates with -J */
-			err = gmtmap_set_distaz (GMT, GMT_CARTESIAN_DIST_PROJ, type, "");
+		case 'C':	/* Cartesian distances (in PROJ_LENGTH_UNIT) after first projecting input coordinates with -J is still just GMT_CARTESIAN_DIST */
+			err = gmtmap_set_distaz (GMT, GMT_CARTESIAN_DIST, type, "");
 			proj_type = GMT_GEO2CART;
 			break;
 
@@ -9594,7 +9594,7 @@ unsigned int gmt_init_distaz (struct GMT_CTRL *GMT, char unit, unsigned int mode
 		case 'S':	/* Spherical cosine distances (for various gridding functions) */
 			err = gmtmap_set_distaz (GMT, GMT_DIST_COS + mode, type, "");
 			break;
-		case 'P':	/* Spherical distances after first inversily projecting Cartesian coordinates with -J */
+		case 'P':	/* Spherical distances after first inversely projecting Cartesian coordinates with -J */
 			err = gmtmap_set_distaz (GMT, GMT_CARTESIAN_DIST_PROJ_INV, type, "");
 			proj_type = GMT_CART2GEO;
 			break;
