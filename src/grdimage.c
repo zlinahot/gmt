@@ -1076,7 +1076,7 @@ GMT_LOCAL void grdimage_img_color_with_intensity (struct GMT_CTRL *GMT, struct G
 }
 
 #define bailout(code) {gmt_M_free_options (mode); return (code);}
-#define Return(code) {Free_Ctrl (GMT, Ctrl); gmt_end_module (GMT, GMT_cpy); bailout (code);}
+#define Return(code) {Free_Ctrl (GMT, Ctrl); gmt_M_free (GMT, Conf); gmt_end_module (GMT, GMT_cpy); bailout (code);}
 
 /* Two macros used to detect if an image has no meta-data for region and increments */
 #define img_inc_is_one(h) (h->inc[GMT_X] == 1.0 && h->inc[GMT_Y] == 1.0)
@@ -1170,11 +1170,9 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 
 			if (Ctrl->I.file == NULL && gmt_file_is_tiled_list (API, Ctrl->In.file, NULL, NULL, NULL)) {	/* Must read and stitch the data tiles first */
 				if ((Grid_orig = GMT_Read_Data (API, GMT_IS_GRID, GMT_IS_FILE, GMT_IS_SURFACE, GMT_CONTAINER_AND_DATA, API->tile_wesn, Ctrl->In.file, NULL)) == NULL) {	/* Get stitched grid */
-					gmt_M_free (GMT, Conf);
 					Return (API->error);
 				}
 				if (GMT_Open_VirtualFile (API, GMT_IS_GRID, GMT_IS_SURFACE, GMT_IN|GMT_IS_REFERENCE, Grid_orig, data_grd)) {
-					gmt_M_free (GMT, Conf);
 					Return (API->error);
 				}
 				got_data_tiles = true;
@@ -1184,7 +1182,6 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 			mem_I = gmt_M_file_is_memory (Ctrl->I.file);	/* Remember if the intensity grid was passed as a memory grid */
 			GMT_Report (API, GMT_MSG_INFORMATION, "Read intensity grid header from file %s\n", Ctrl->I.file);
 			if ((Intens_orig = GMT_Read_Data (API, GMT_IS_GRID, GMT_IS_FILE, GMT_IS_SURFACE, GMT_CONTAINER_ONLY, NULL, Ctrl->I.file, NULL)) == NULL) {	/* Get header only */
-				gmt_M_free (GMT, Conf);
 				Return (API->error);
 			}
 		}
@@ -1229,7 +1226,6 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 		/* Read in the the entire image that is to be mapped */
 		GMT_Report (API, GMT_MSG_INFORMATION, "Allocate memory and read image file %s\n", Ctrl->In.file);
 		if ((I = GMT_Read_Data (API, GMT_IS_IMAGE, GMT_IS_FILE, GMT_IS_SURFACE, GMT_CONTAINER_AND_DATA | GMT_IMAGE_NO_INDEX, NULL, Ctrl->In.file, NULL)) == NULL) {
-			gmt_M_free (GMT, Conf);
 			Return (API->error);
 		}
 		grid_registration = I->header->registration;	/* This is presumably pixel registration since it is an image */
@@ -1277,7 +1273,6 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 		if (!got_data_tiles) {	/* Only avoid this step if we already read a data tile bunch earlier under the I.derive == true section above */
 			GMT_Report (API, GMT_MSG_INFORMATION, "Read header from file %s\n", Ctrl->In.file);
 			if ((Grid_orig = GMT_Read_Data (API, GMT_IS_GRID, GMT_IS_FILE, GMT_IS_SURFACE, GMT_CONTAINER_ONLY, NULL, Ctrl->In.file, NULL)) == NULL) {	/* Get header only */
-				gmt_M_free (GMT, Conf);	/* Done with the configuration structure */
 				Return (API->error);
 			}
 			if ((API->error = gmt_img_sanitycheck (GMT, Grid_orig->header))) {	/* Used map projection on a Mercator (i.e., already a Cartesian) grid */
@@ -1308,7 +1303,7 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 		gmt_set_R_from_grd (GMT, Grid_orig->header);
 
 	/* Initialize the projection for the selected -R -J */
-	if (gmt_M_err_pass (GMT, gmt_map_setup (GMT, GMT->common.R.wesn), "")) Return (GMT_PROJECTION_ERROR);
+	if (gmt_map_setup (GMT, GMT->common.R.wesn)) Return (GMT_PROJECTION_ERROR);
 
 	/* Determine the wesn to be used to read the grid file; or bail if file is outside -R */
 
@@ -1455,10 +1450,43 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 	if (got_z_grid && (gmt_whole_earth (GMT, Grid_orig->header->wesn, wesn) == 1))
 		need_to_project = true;	/* This can only happen if reading a remote global geographic grid and the central meridian differs from that of the projection */
 
+	/* Get or calculate a color palette file */
+
+	has_content = (got_z_grid) ? false : true;	/* Images always have content but grids may be all NaN */
+	if (got_z_grid) {	/* Got a single grid so need to convert z to color via a CPT */
+		if (Ctrl->C.active) {	/* Read a palette file */
+			char *cpt = gmt_cpt_default (API, Ctrl->C.file, Ctrl->In.file);
+			if ((P = gmt_get_palette (GMT, cpt, GMT_CPT_OPTIONAL, Grid_orig->header->z_min, Grid_orig->header->z_max, Ctrl->C.dz)) == NULL) {
+				GMT_Report (API, GMT_MSG_ERROR, "Failed to read CPT %s.\n", Ctrl->C.file);
+				gmt_free_header (API->GMT, &header_G);
+				gmt_free_header (API->GMT, &header_I);
+				Return (API->error);	/* Well, that did not go so well... */
+			}
+			if (cpt) gmt_M_str_free (cpt);
+			gray_only = (P && P->is_gray);	/* Flag that we are doing a gray scale image below */
+			Conf->P = P;
+			if (P && P->has_pattern) GMT_Report (API, GMT_MSG_WARNING, "Patterns in CPTs will be ignored\n");
+		}
+		if (Ctrl->W.active) {	/* Check if there are just NaNs in the grid */
+			for (node = 0; !has_content && node < Grid_orig->header->size; node++)
+				if (!gmt_M_is_dnan (Conf->Grid->data[node])) has_content = true;
+		}
+	}
+
 	if (need_to_project) {	/* Need to resample the grid or image [and intensity grid] using the specified map projection */
 		int nx_proj = 0, ny_proj = 0;
 		double inc[2] = {0.0, 0.0};
 
+		if (got_z_grid && P && P->categorical && (GMT->common.n.interpolant != BCR_NEARNEIGHBOR || GMT->common.n.antialias)) {
+			GMT_Report (API, GMT_MSG_WARNING, "Your CPT is categorical. Enabling -nn+a to avoid interpolation across categories.\n");
+			GMT->common.n.interpolant = BCR_NEARNEIGHBOR;
+			GMT->common.n.antialias = false;
+			GMT->common.n.threshold = 0.0;
+			HH = gmt_get_H_hidden (Grid_orig->header);
+			HH->bcr_threshold = GMT->common.n.threshold;
+			HH->bcr_interpolant = GMT->common.n.interpolant;
+			HH->bcr_n = 1;
+		}
 		if (Ctrl->E.dpi == 0) {	/* Use input # of nodes as # of projected nodes */
 			nx_proj = Conf->n_columns;
 			ny_proj = Conf->n_rows;
@@ -1557,7 +1585,6 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 
 	/* From here, use Grid_proj or Img_proj plus optionally Intens_proj in making the (now) Cartesian rectangular image */
 
-	has_content = (got_z_grid) ? false : true;	/* Images always have content but grids may be all NaN */
 	if (use_intensity_grid) IH = gmt_get_H_hidden (Intens_proj->header);
 	if (got_z_grid) { /* Dealing with a projected grid, so we only have one band [z]*/
 		Grid_proj->header->n_bands = 1;
@@ -1574,28 +1601,6 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 	Conf->n_rows    = header_work->n_rows;
 	Conf->int_mode  = use_intensity_grid;
 	Conf->nm        = header_work->nm;
-
-	/* Get or calculate a color palette file */
-
-	if (got_z_grid) {	/* Got a single grid so need to convert z to color via a CPT */
-		if (Ctrl->C.active) {	/* Read a palette file */
-			char *cpt = gmt_cpt_default (API, Ctrl->C.file, Ctrl->In.file);
-			if ((P = gmt_get_palette (GMT, cpt, GMT_CPT_OPTIONAL, header_work->z_min, header_work->z_max, Ctrl->C.dz)) == NULL) {
-				GMT_Report (API, GMT_MSG_ERROR, "Failed to read CPT %s.\n", Ctrl->C.file);
-				gmt_free_header (API->GMT, &header_G);
-				gmt_free_header (API->GMT, &header_I);
-				Return (API->error);	/* Well, that did not go so well... */
-			}
-			if (cpt) gmt_M_str_free (cpt);
-			gray_only = (P && P->is_gray);	/* Flag that we are doing a gray scale image below */
-			Conf->P = P;
-			if (P && P->has_pattern) GMT_Report (API, GMT_MSG_WARNING, "Patterns in CPTs will be ignored\n");
-		}
-		if (Ctrl->W.active) {	/* Check if there are just NaNs in the grid */
-			for (node = 0; !has_content && node < header_work->size; node++)
-				if (!gmt_M_is_dnan (Conf->Grid->data[node])) has_content = true;
-		}
-	}
 
 	NaN_rgb = (P) ? P->bfn[GMT_NAN].rgb : GMT->current.setting.color_patch[GMT_NAN];	/* Determine which color represents a NaN grid node */
 	if (Ctrl->Q.active) {	/* Want colormasking via the grid's NaN entries */
@@ -1692,9 +1697,9 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 	normal_y = !(GMT->current.proj.projection_GMT == GMT_LINEAR && !GMT->current.proj.xyz_pos[1] && !resampled);
 
 	Conf->actual_row = gmt_M_memory (GMT, NULL, Conf->n_rows, unsigned int);	/* Deal with any reversal of the y-axis due to -J */
-	for (row = 0; row < Conf->n_rows; row++) Conf->actual_row[row] = (normal_y) ? row : Conf->n_rows - row - 1;
+	for (row = 0; row < (unsigned int)Conf->n_rows; row++) Conf->actual_row[row] = (normal_y) ? row : Conf->n_rows - row - 1;
 	Conf->actual_col = gmt_M_memory (GMT, NULL, Conf->n_columns, unsigned int);	/* Deal with any reversal of the x-axis due to -J */
-	for (col = 0; col < Conf->n_columns; col++) Conf->actual_col[col] = (normal_x) ? col : Conf->n_columns - col - 1;
+	for (col = 0; col < (unsigned int)Conf->n_columns; col++) Conf->actual_col[col] = (normal_x) ? col : Conf->n_columns - col - 1;
 
 	rgb_cube_scan = (P && Ctrl->Q.active && !Ctrl->A.active);	/* Need to look for unique rgb for PostScript masking */
 
@@ -1815,9 +1820,9 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 		if (Ctrl->A.active) {	/* Creating a raster image, not PostScript */
 			if (Ctrl->Q.active) {	/* Must initialize the transparency byte (alpha): 255 everywhere except at NaNs where it should be 0 */
 				memset (Out->alpha, 255, header_work->nm);
-				for (node = row = 0; row < Conf->n_rows; row++) {
+				for (node = row = 0; row < (unsigned int)Conf->n_rows; row++) {
 					kk = gmt_M_ijpgi (header_work, row, 0);
-					for (col = 0; col < Conf->n_columns; col++, node++) {
+					for (col = 0; col < (unsigned int)Conf->n_columns; col++, node++) {
 						if (gmt_M_is_fnan (Grid_proj->data[kk + col])) Out->alpha[node] = 0;
 					}
 				}
@@ -1832,8 +1837,6 @@ EXTERN_MSC int GMT_grdimage (void *V_API, int mode, void *args) {
 		    	Conf->n_columns, Conf->n_rows, (Ctrl->E.device_dpi ? -24 : 24));
 		}
 	}
-
-	gmt_M_free (GMT, Conf);	/* Done with the configuration structure */
 
 	if (!Ctrl->A.active) {	/* Finalize PostScript plot, possibly including basemap */
 		if (!Ctrl->N.active) gmt_map_clip_off (GMT);

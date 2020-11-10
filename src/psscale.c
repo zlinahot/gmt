@@ -1624,6 +1624,12 @@ EXTERN_MSC int GMT_psscale (void *V_API, int mode, void *args) {
 	if (P->has_range)	/* Convert from normalized to default CPT z-range */
 		gmt_stretch_cpt (GMT, P, 0.0, 0.0);
 
+	if (P->categorical && (Ctrl->D.emode & 1 || Ctrl->D.emode & 2)) {
+			GMT_Report (API, GMT_MSG_WARNING, "Option -D: Cannot select back/fore-ground extender for categorical CPT\n");
+			if (Ctrl->D.emode & 1) Ctrl->D.emode -= 1;
+			if (Ctrl->D.emode & 2) Ctrl->D.emode -= 2;
+	}
+
 	if (Ctrl->G.active) {	/* Attempt truncation */
 		struct GMT_PALETTE *Ptrunc = gmt_truncate_cpt (GMT, P, Ctrl->G.z_low, Ctrl->G.z_high);	/* Possibly truncate the CPT */
 		if (Ptrunc == NULL)
@@ -1676,14 +1682,14 @@ EXTERN_MSC int GMT_psscale (void *V_API, int mode, void *args) {
 		GMT->common.J.active = false;
 		gmt_parse_common_options (GMT, "J", 'J', text);
 		wesn[XLO] = start_val;	wesn[XHI] = stop_val;	wesn[YHI] = Ctrl->D.dim[GMT_Y];
-		if (gmt_M_err_pass (GMT, gmt_map_setup (GMT, wesn), ""))
+		if (gmt_map_setup (GMT, wesn))
 			Return (GMT_PROJECTION_ERROR);
 		if ((PSL = gmt_plotinit (GMT, options)) == NULL)
 			Return (GMT_RUNTIME_ERROR);
 		gmt_plane_perspective (GMT, GMT->current.proj.z_project.view_plane, GMT->current.proj.z_level);
 	}
 	else {	/* First use current projection, project, then use fake projection */
-		if (gmt_M_err_pass (GMT, gmt_map_setup (GMT, GMT->common.R.wesn), ""))
+		if (gmt_map_setup (GMT, GMT->common.R.wesn))
 			Return (GMT_PROJECTION_ERROR);
 		gmt_set_refpoint (GMT, Ctrl->D.refpoint);	/* Finalize reference point plot coordinates, if needed */
 
@@ -1705,7 +1711,7 @@ EXTERN_MSC int GMT_psscale (void *V_API, int mode, void *args) {
 		gmt_parse_common_options (GMT, "J", 'J', text);
 		wesn[XLO] = start_val;	wesn[XHI] = stop_val;	wesn[YHI] = Ctrl->D.dim[GMT_Y];
 		if (GMT->current.plot.panel.active) GMT->current.plot.panel.no_scaling = 1;	/* Do not rescale dimensions */
-		if (gmt_M_err_pass (GMT, gmt_map_setup (GMT, wesn), ""))
+		if (gmt_map_setup (GMT, wesn))
 			Return (GMT_PROJECTION_ERROR);
 		if (GMT->current.plot.panel.active) GMT->current.plot.panel.no_scaling = 0;	/* Reset no_scaling flag */
 	}

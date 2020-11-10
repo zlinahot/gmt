@@ -362,7 +362,7 @@ L1:
 		}
 		/* Must download it the first time */
 		if (GMT->current.setting.auto_download == GMT_NO_DOWNLOAD) {
-			GMT_Report (GMT->parent, GMT_MSG_ERROR, "Unable to download the GSHHG for GMT since GMT_AUTO_DOWNLOAD is off\n");
+			GMT_Report (GMT->parent, GMT_MSG_ERROR, "Unable to download the GSHHG for GMT since GMT_DATA_UPDATE_INTERVAL is off\n");
 			return NULL;
 		}
 		sprintf (path, "%s/geography/gshhg", GMT->session.USERDIR);	/* Local directory destination */
@@ -1537,7 +1537,7 @@ int gmt_prep_shore_polygons (struct GMT_CTRL *GMT, struct GMT_GSHHS_POL **p_old,
 	 */
 
 	unsigned int k, np_new, n, n_use;
-	uint64_t start;
+	uint64_t start = 0;
 	bool close;
 	size_t n_alloc;
 	double *xtmp = NULL, *ytmp = NULL;
