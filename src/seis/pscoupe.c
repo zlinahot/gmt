@@ -59,7 +59,11 @@ struct PSCOUPE_CTRL {
 		struct nodal_plane PREF;
 		char newfile[PATH_MAX], extfile[PATH_MAX];
 	} A;
- 	struct PSCOUPE_E {	/* -E<fill> */
+ 	struct PSCOUPE_C {	/* -C<cpt> */
+		bool active;
+		char *file;
+	} C;
+	struct PSCOUPE_E {	/* -E<fill> */
 		bool active;
 		struct GMT_FILL fill;
 	} E;
@@ -108,10 +112,6 @@ struct PSCOUPE_CTRL {
 		bool active;
 		struct GMT_PEN pen;
 	} W;
-	struct PSCOUPE_Z {	/* -Z<cpt> */
-		bool active;
-		char *file;
-	} Z;
 	struct PSCOUPE_A2 {	/* -Fa[size[/Psymbol[Tsymbol]]] */
 		bool active;
 		char P_symbol, T_symbol;
@@ -162,7 +162,7 @@ static void *New_Ctrl (struct GMT_CTRL *GMT) {	/* Allocate and initialize a new 
 
 static void Free_Ctrl (struct GMT_CTRL *GMT, struct PSCOUPE_CTRL *C) {	/* Deallocate control structure */
 	if (!C) return;
-	gmt_M_str_free (C->Z.file);
+	gmt_M_str_free (C->C.file);
 	gmt_M_free (GMT, C);
 }
 
@@ -429,10 +429,10 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	const char *name = gmt_show_name_and_purpose (API, THIS_MODULE_LIB, THIS_MODULE_CLASSIC_NAME, THIS_MODULE_PURPOSE);
 	if (level == GMT_MODULE_PURPOSE) return (GMT_NOERROR);
 	GMT_Message (API, GMT_TIME_NONE, "usage: %s [<table>] -A<params> %s %s -S<format><scale>[+a<angle>][+f<font>][+j<justify>][+o<dx>[/<dy>]]\n", name, GMT_J_OPT, GMT_Rgeo_OPT);
-	GMT_Message (API, GMT_TIME_NONE, "\t[%s] [-E<fill>] [-Fa[<size>][/<Psymbol>[<Tsymbol>]] [-Fe<fill>] [-Fg<fill>] [-Fr<fill>] [-Fp[<pen>]] [-Ft[<pen>]]\n", GMT_B_OPT);
+	GMT_Message (API, GMT_TIME_NONE, "\t[%s] [-C<cpt>] [-E<fill>] [-Fa[<size>][/<Psymbol>[<Tsymbol>]] [-Fe<fill>] [-Fg<fill>] [-Fr<fill>] [-Fp[<pen>]] [-Ft[<pen>]]\n", GMT_B_OPT);
 	GMT_Message (API, GMT_TIME_NONE, "\t[-Fs<symbol><size>+f<font>+o<dx>/<dy>+j<justify>] [-G<fill>] %s[-L<pen>] [-M] [-N] %s%s\n", API->K_OPT, API->O_OPT, API->P_OPT);
 	GMT_Message (API, GMT_TIME_NONE, "\t[-Q] [-T<nplane>[/<pen>]] [%s] [%s] [-W<pen>] \n", GMT_U_OPT, GMT_V_OPT);
-	GMT_Message (API, GMT_TIME_NONE, "\t[%s] [%s] [-Z<cpt>]\n", GMT_X_OPT, GMT_Y_OPT);
+	GMT_Message (API, GMT_TIME_NONE, "\t[%s] [%s]\n", GMT_X_OPT, GMT_Y_OPT);
 	GMT_Message (API, GMT_TIME_NONE, "\t%s[%s] [%s] [%s]\n\t[%s]\n\t[%s]\n\t[%s] [%s] [%s] [%s]\n\n", API->c_OPT, GMT_di_OPT, GMT_e_OPT, GMT_h_OPT, GMT_i_OPT, GMT_p_OPT, GMT_qi_OPT, GMT_t_OPT, GMT_colon_OPT, GMT_PAR_OPT);
 
 	if (level == GMT_SYNOPSIS) return (GMT_MODULE_SYNOPSIS);
@@ -470,6 +470,7 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	GMT_Option (API, "J-,R");
 	GMT_Message (API, GMT_TIME_NONE, "\n\tOPTIONS:\n");
 	GMT_Option (API, "<,B-");
+	GMT_Message (API, GMT_TIME_NONE, "\t-C Use CPT to assign colors based on depth-value in 3rd column.\n");
 	gmt_fill_syntax (API->GMT, 'E', NULL, "Set color used for extensive parts [Default is white].");
 	GMT_Message (API, GMT_TIME_NONE, "\t-F Sets various attributes of symbols depending on <mode>:\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t   a Plot axis. Default symbols are circles.\n");
@@ -496,7 +497,6 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	GMT_Message (API, GMT_TIME_NONE, "\t   If moment tensor is required, nodal planes overlay moment tensor.\n");
 	GMT_Option (API, "U,V");
 	GMT_Message (API, GMT_TIME_NONE, "\t-W Set pen attributes [%s]\n", gmt_putpen (API->GMT, &API->GMT->current.setting.map_default_pen));
-	GMT_Message (API, GMT_TIME_NONE, "\t-Z Use CPT to assign colors based on depth-value in 3rd column.\n");
 
 	GMT_Option (API, "X,c,di,e,h,i,p,qi,t,:,.");
 
@@ -563,6 +563,11 @@ static int parse (struct GMT_CTRL *GMT, struct PSCOUPE_CTRL *Ctrl, struct GMT_OP
 				if (p) p[0] = '+';	/* Restore modifier */
 				break;
 
+			case 'C':	/* Vary symbol color with z */
+			case 'Z':	/* Backwards compatibility */
+				Ctrl->C.active = true;
+				if (opt->arg[0]) Ctrl->C.file = strdup (opt->arg);
+				break;
 			case 'E':	/* Set color for extensive parts  */
 				Ctrl->E.active = true;
 				if (!opt->arg[0] || (opt->arg[0] && gmt_getfill (GMT, opt->arg, &Ctrl->E.fill))) {
@@ -806,10 +811,6 @@ static int parse (struct GMT_CTRL *GMT, struct PSCOUPE_CTRL *Ctrl, struct GMT_OP
 					n_errors++;
 				}
 				break;
-			case 'Z':	/* Vary symbol color with z */
-				Ctrl->Z.active = true;
-				if (opt->arg[0]) Ctrl->Z.file = strdup (opt->arg);
-				break;
 
 			default:	/* Report bad options */
 				n_errors += gmt_default_error (GMT, opt->option);
@@ -817,7 +818,7 @@ static int parse (struct GMT_CTRL *GMT, struct PSCOUPE_CTRL *Ctrl, struct GMT_OP
 		}
 	}
 
-	gmt_consider_current_cpt (GMT->parent, &Ctrl->Z.active, &(Ctrl->Z.file));
+	gmt_consider_current_cpt (GMT->parent, &Ctrl->C.active, &(Ctrl->C.file));
 
 	/* Check that the options selected are mutually consistent */
 
@@ -889,8 +890,8 @@ EXTERN_MSC int GMT_pscoupe (void *V_API, int mode, void *args) {
 	gmt_M_memset (&meca, 1, meca);
 	gmt_M_memset (&moment, 1, moment);
 
-	if (Ctrl->Z.active) {
-		if ((CPT = GMT_Read_Data (API, GMT_IS_PALETTE, GMT_IS_FILE, GMT_IS_NONE, GMT_READ_NORMAL, NULL, Ctrl->Z.file, NULL)) == NULL) {
+	if (Ctrl->C.active) {
+		if ((CPT = GMT_Read_Data (API, GMT_IS_PALETTE, GMT_IS_FILE, GMT_IS_NONE, GMT_READ_NORMAL, NULL, Ctrl->C.file, NULL)) == NULL) {
 			Return (API->error);
 		}
 	}
@@ -997,7 +998,7 @@ EXTERN_MSC int GMT_pscoupe (void *V_API, int mode, void *args) {
 			if (abs (GMT->current.map.this_x_status) > 1 || abs (GMT->current.map.this_y_status) > 1) continue;
 		}
 
-		if (Ctrl->Z.active) gmt_get_fill_from_z (GMT, CPT, depth, &Ctrl->G.fill);
+		if (Ctrl->C.active) gmt_get_fill_from_z (GMT, CPT, depth, &Ctrl->G.fill);
 
 		gmt_geo_to_xy (GMT, xy[GMT_X], xy[GMT_Y], &plot_x, &plot_y);
 
