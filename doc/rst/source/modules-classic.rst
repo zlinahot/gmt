@@ -143,6 +143,7 @@ All modules are requested via a call to the :doc:`gmt` program.
     supplements/potential/grdgravmag3d
     supplements/potential/grdredpol
     supplements/potential/grdseamount
+    supplements/potential/grdslice
     supplements/potential/talwani2d
     supplements/potential/talwani3d
     supplements/segy/pssegyz
@@ -302,6 +303,7 @@ Supplemental Modules
     - :doc:`/supplements/potential/grdgravmag3d`
     - :doc:`/supplements/potential/grdredpol`
     - :doc:`/supplements/potential/grdseamount`
+    - :doc:`/supplements/potential/grdslice`
     - :doc:`/supplements/potential/talwani2d`
     - :doc:`/supplements/potential/talwani3d`
     - :doc:`/supplements/segy/pssegy`
@@ -650,6 +652,8 @@ potential
 | :doc:`/supplements/potential/grdredpol`    | |grdredpol_purpose|      |
 +--------------------------------------------+--------------------------+
 | :doc:`/supplements/potential/grdseamount`  | |grdseamount_purpose|    |
++--------------------------------------------+--------------------------+
+| :doc:`/supplements/potential/grdslice`     | |grdslice_purpose|       |
 +--------------------------------------------+--------------------------+
 | :doc:`/supplements/potential/talwani2d`    | |talwani2d_purpose|      |
 +--------------------------------------------+--------------------------+

@@ -13,9 +13,9 @@
  *
  *	Contact info: www.generic-mapping-tools.org
  *--------------------------------------------------------------------*/
-/* grdslice reads a Mercator img grid and detects seamounts by using
+/* grdslice reads a grid and detects isolated seamounts by using
  * slice contouring.  We only contour interior, closed contours.
- * We contour from maximum value and go backwards.  As the contour value
+ * We contour from maximum value and go downwards.  As the contour value
  * drops we will chop off the tops of smaller and smaller seamounts.  The
  * first time we do this we initialize a new seamount object and then the
  * contour rings further down are appended via pointers to the down slice.
@@ -25,23 +25,8 @@
  * location.
  *
  * Author:	Paul Wessel and Seung-Sep Kim
- * Date:	1-DEC-2020 (original date 5-DEC-2006)
- * Version:	2.0	Based partly on grdcontour
- *
- *	18-JAN-2008, sskim
- *	1. -Mg option is complete
- *	
- *	29-OCT-2007, sskim
- *	1. printing seamount id as the fourth column of XXX_pos.txt 
- *	2. -M option is added to specify the x,y unit of input grid
- *		Default mode is for Mercator grids
- *		-Mk is complete
- *		-Mg option needs to be complete
- *	3. printing area as the fifth column of XXX_pos.txt
- *	
- *	31-OCT-2007, sskim
- *	1. major minor azimuth fit are printed in XXX_pos.txt
- *	16-MAR-2008, pwessel.  Added -A option to skip multiple close seamounts.  Not doing anything yet...
+ * Date:	1-DEC-2020 (original date 5-DEC-2006 and partly based on grdcontour)
+ * Version:	2.0	Revised for GMT 6
  */
 
 #include "gmt_dev.h"
@@ -52,7 +37,7 @@
 #define THIS_MODULE_PURPOSE	"Detect isolated seamounts by contour-slicing a grid"
 #define THIS_MODULE_KEYS	"<G{"
 #define THIS_MODULE_NEEDS	"g"
-#define THIS_MODULE_OPTIONS "-:RVbdefhir"
+#define THIS_MODULE_OPTIONS "-:Vf"
 
 struct GRDSLICE_CTRL {
 	struct GMT_CONTOUR contour;
@@ -60,10 +45,6 @@ struct GRDSLICE_CTRL {
 		bool active;
 		char *file;
 	} In;
-	struct GRDSLICE_T {  /* -T<bottom_level>/<area_cutoff> */
-		bool active;
-		double blevel, acutoff;
-	} T;
 	struct GRDSLICE_A {	/* -A<cutoff> */
 		bool active;
 		double cutoff;
@@ -83,20 +64,22 @@ struct GRDSLICE_CTRL {
 		bool active;
 		double low, high;
 	} L;
+	struct GRDSLICE_M {  /* -M */
+		bool active;
+	} M;
 	struct GRDSLICE_S {	/* -S<smooth> */
 		bool active;
 		unsigned int value;
 	} S;
-	struct GRDSLICE_Z {	/* -Z[<fact>[/shift>]] */
+	struct GRDSLICE_T {  /* -T<bottom_level>/<area_cutoff> */
+		bool active;
+		double blevel, acutoff;
+	} T;
+	struct GRDSLICE_Z {	/* -Z[+s<fact>][+o<shift>] */
 		bool active;
 		double scale, offset;
 	} Z;
-	struct GRDSLICE_M {  /* -M[k][g] */
-		bool active;
-		char unit;
-		int mode;  /* 0 for km, 1 for deg, Mercator is default */
-	} M;
-	/* the usual input grids will in mercator projection.
+	/* the usual input grids will in Mercator projection.
 		however, for testing with synthetic data, input grids
 		can be in either km or geographic coordinates */
 };
@@ -173,19 +156,18 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	if (level == GMT_MODULE_PURPOSE) return (GMT_NOERROR);
 
 	GMT_Message (API, GMT_TIME_NONE, "usage: %s <grid> -C<cont_int> [-A<cutoff>] [-D<prefix>] [-I] [-L<Low/high>]\n", name);
-	GMT_Message (API, GMT_TIME_NONE, "\t-[Md|k] [-S<smooth>] [-T<bottom_level>/<area_cutoff>] [%s] [-Z[+s<scale>][+o<offset>]]\n\n", GMT_V_OPT);
+	GMT_Message (API, GMT_TIME_NONE, "\t[-M] [-S<smooth>] [-T<bottom_level>/<area_cutoff>] [%s] [-Z[+s<scale>][+o<offset>]]\n\n", GMT_V_OPT);
 
 	if (level == GMT_SYNOPSIS) return (GMT_MODULE_SYNOPSIS);
 
-	GMT_Message (API, GMT_TIME_NONE, "\t<grid> is the grid file to be sliced (default: Mercator format).\n");
+	GMT_Message (API, GMT_TIME_NONE, "\t<grid> is the grid file to be sliced.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-C Contours slice interval.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\n\tOPTIONS:\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-A Skip peaks that are within <cutoff> km from a larger seamount [no skipping].\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-D Sets filename prefix for output files (<prefix>_slices.txt and <prefix>_pos.txt) [SMT].\n");
-	GMT_Message (API, GMT_TIME_NONE, "\t-I Invert Mercator coordinates on output (gives lon, lat).\n");
+	GMT_Message (API, GMT_TIME_NONE, "\t-I Invert Mercator coordinates on output (gives lon, lat); requires -M.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-L Limit contours to this range [Default is -L0/inf].\n");
-	GMT_Message (API, GMT_TIME_NONE, "\t-M Specify the unit of the coordinates of the input grid (default: Mercator)\n");
-	GMT_Message (API, GMT_TIME_NONE, "\t   Choose -Mk for km or -Mg for degree. Not compatible with -I.\n");  
+	GMT_Message (API, GMT_TIME_NONE, "\t-M Flag input <grid> to be in spherical Mercator units [geographic degrees]\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-S Smooth contours by interpolation at approximately gridsize/<smooth> intervals.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-T Specify the bottom level of contouring <bottom_level> and ignore\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t   contours whose area are less than <area_cutoff> in km^2\n");
@@ -235,14 +217,7 @@ static int parse (struct GMT_CTRL *GMT, struct GRDSLICE_CTRL *Ctrl, struct GMT_O
 				Ctrl->I.active = true;
 				break;
 			case 'M':
-				if (strchr ("kg", opt->arg[0])) {
-					Ctrl->M.active = true;
-					Ctrl->M.unit = opt->arg[0];
-					Ctrl->M.mode = -1;
-					if (Ctrl->M.unit == 'k') Ctrl->M.mode = 0;  /* x,y in km */
-					if (Ctrl->M.unit == 'd') Ctrl->M.mode = 1;  /* x,y in deg */
-					if (Ctrl->M.unit == 'g') Ctrl->M.mode = 1;  /* Backwards compatibility: x,y in deg */
-				}					
+				Ctrl->M.active = true;
 				break;
 			case 'L':
 				Ctrl->L.active = true;
@@ -280,8 +255,7 @@ static int parse (struct GMT_CTRL *GMT, struct GRDSLICE_CTRL *Ctrl, struct GMT_O
 	n_errors += gmt_M_check_condition (GMT, Ctrl->L.low > Ctrl->L.high, "Option -L: lower limit > upper!\n");
 	n_errors += gmt_M_check_condition (GMT, Ctrl->T.active && Ctrl->T.blevel < Ctrl->L.low, "Option -T: Bottom level < lower limit!\n");
 	n_errors += gmt_M_check_condition (GMT, Ctrl->Z.scale == 0.0, "Option -Z: factor must be nonzero\n");
-	n_errors += gmt_M_check_condition (GMT, Ctrl->I.active && Ctrl->M.active, "Options -I and -M cannot be given at the same time\n");
-	n_errors += gmt_M_check_condition (GMT, Ctrl->M.active && Ctrl->M.mode < 0, "Option -M: Correct syntax: -Mk or -M\n");
+	n_errors += gmt_M_check_condition (GMT, Ctrl->I.active && !Ctrl->M.active, "Options -I: Requires -M\n");
 
 	return (n_errors ? GMT_PARSE_ERROR : GMT_NOERROR);
 
@@ -304,8 +278,8 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 	
 	FILE *fp = NULL, *tp = NULL, *kp = NULL;
 
-	double aspect, cval, min, max, small, scale, minor, major, sa, ca, sin_a, cos_a, area, dr, a;
-	double small_x, small_y, lon, lat, min_area, max_area, xr, yr, r, r_fit, rms, merc_x0 = 0.0, merc_y0 = 0.0;
+	double aspect, cval, min, max, small, scale = 1.0, minor, major, sa, ca, sin_a, cos_a, area, dr, a;
+	double small_x, small_y, lon, lat = 0.0, min_area, max_area, xr, yr, r, r_fit, rms, merc_x0 = 0.0, merc_y0 = 0.0;
 	double A[4], EigenValue[2], EigenVector[4], out[9], work1[2], work2[2], *x = NULL, *y = NULL, *contour = NULL;
 
 	struct GMT_GRID *G = NULL, *G_orig = NULL;
@@ -333,7 +307,18 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 
 	/*---------------------------- This is the grdslice main code ----------------------------*/
 	
-	if (!Ctrl->M.active) {
+	GMT_Report (API, GMT_MSG_INFORMATION, "Allocate memory and read data file\n");
+
+	if (!strcmp (Ctrl->In.file,  "=")) {
+		GMT_Report (API, GMT_MSG_ERROR, "Piping of grids not supported!\n");
+		Return (EXIT_FAILURE);
+	}
+
+	if ((G = GMT_Read_Data (API, GMT_IS_GRID, GMT_IS_FILE, GMT_IS_SURFACE, GMT_CONTAINER_AND_DATA, NULL, Ctrl->In.file, NULL)) == NULL) {	/* Get the grid */
+		Return (API->error);
+	}
+
+	if (Ctrl->M.active) {	/* Grid is in Mercator units */
 		double wesn[4];
 		/* Select plain Mercator on a sphere with -Jm1 -R0/360/-lat/+lat */
 		GMT->current.setting.proj_ellipsoid = gmt_get_ellipsoid (GMT, "Sphere");
@@ -351,17 +336,6 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 		gmt_geo_to_xy (GMT, 0.0, 0.0, &merc_x0, &merc_y0);
 	}
 	
-	GMT_Report (API, GMT_MSG_INFORMATION, "Allocate memory and read data file\n");
-
-	if (!strcmp (Ctrl->In.file,  "=")) {
-		GMT_Report (API, GMT_MSG_ERROR, "Piping of grids not supported!\n");
-		Return (EXIT_FAILURE);
-	}
-
-	if ((G = GMT_Read_Data (API, GMT_IS_GRID, GMT_IS_FILE, GMT_IS_SURFACE, GMT_CONTAINER_AND_DATA, NULL, Ctrl->In.file, NULL)) == NULL) {	/* Get the grid */
-		Return (API->error);
-	}
-
 	n_edges = G->header->n_rows * (urint (ceil (G->header->n_columns / 16.0)));
 	edge = gmt_M_memory (GMT, NULL, n_edges, unsigned int);	/* Bit flags used to keep track of contours */
 
@@ -396,16 +370,17 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 		}
 		contour[n_contours] = cs * Ctrl->C.interval;
 	}
-
 	contour = gmt_M_memory (GMT, contour, n_contours, double);
+
 	/* Because we are doing single-precision, we cannot subtract incrementally but must start with the
 	 * original grid values and subtract the current contour value. */
 	 
 	if ((G_orig = GMT_Duplicate_Data (API, GMT_IS_GRID, GMT_DUPLICATE_DATA, G)) == NULL) {
 		gmt_M_free (GMT, contour);
-		Return (GMT_RUNTIME_ERROR); /* Original copy of grid used for contouring */
+		Return (GMT_RUNTIME_ERROR);
 	}
 
+	/* Get initial memory allocations for slices and smts */
 	slice = gmt_M_memory (GMT, NULL, n_contours, struct GRDSLICE_SLICE *);
 	last = gmt_M_memory (GMT, NULL, n_contours, struct GRDSLICE_SLICE *);
 	smt = gmt_M_memory (GMT, NULL, n_alloc, struct GRDSLICE_SMT *);
@@ -413,7 +388,7 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 	for (cs = (int)(n_contours-1); cs >= 0; cs--) {	/* For each contour value cval but starting from the top */
 		c = (unsigned int)cs;
 
-		/* Reset markers and set up new zero-contour*/
+		/* Reset markers and set up new zero-contour */
 
 		cval = contour[c];
 
@@ -460,24 +435,20 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 			/* Normalize to get mean position */
 			this_slice->x_mean /= n;
 			this_slice->y_mean /= n;
-			
-			if (Ctrl->M.active) {
-				if (Ctrl->M.mode) {  /* x,y in deg */
-					lat = this_slice->y_mean;
-					scale = GMT->current.proj.DIST_KM_PR_DEG * cosd (lat);
-				}
-				else /* x,y in km */
-					scale = 1.0;
-			}
-			else { /* default mode, Mercator */
+
+			if (Ctrl->M.active) { /* Mercator grid */
 				/* Adjust area for Mercator scale */
 				gmt_xy_to_geo (GMT, &lon, &lat, this_slice->x_mean + merc_x0, this_slice->y_mean + merc_y0);
 				scale = GMT->current.proj.DIST_KM_PR_DEG * cosd (lat);
 			}
-			
-			this_slice->area = area * (scale * scale);	/* Now in km^2 */
+			else if (gmt_M_is_geographic (GMT, GMT_IN)) {	/* Geographic */
+					lat = this_slice->y_mean;
+					scale = GMT->current.proj.DIST_KM_PR_DEG * cosd (lat);
+			}
 
-			GMT_Report (API, GMT_MSG_DEBUG, "Area is %g in Mercator with %g scale in %g [lat = %g]\n", area, scale, this_slice->z, lat);
+			this_slice->area = area * (scale * scale);	/* Now in km^2 unless for Cartesian grids */
+
+			GMT_Report (API, GMT_MSG_DEBUG, "Area = %g with scale = %g for z = %g [lat = %g]\n", area, scale, this_slice->z, lat);
 			
 			/* Find orientation of major/minor axes and aspect ratio */
 			A[0] = A[1] = A[2] = A[3] = 0.0;
@@ -500,10 +471,10 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 			
 			this_slice->minor = sqrt (this_slice->area / (aspect * M_PI));	/* Ellipse axes in km */
 			this_slice->major = this_slice->minor * aspect;
-			minor = sqrt (area / (aspect * M_PI));				/* Axes in map units */
+			minor = sqrt (area / (aspect * M_PI));		/* Axes in map units */
 			major = minor * aspect;
 			
-			/* Determine measure of fit by calculating 100.0 * (1 - rms(delta_r) / major) */
+			/* Determine a measure of fit by calculating 100.0 * (1 - rms(delta_r) / major) */
 			rms = 0.0;
 			for (i = 0; i < n; i++) {	/* For each point */
 				xr = x[i] * ca - y[i] * sa;	/* Rotate vector into eigen-system axes */
