@@ -139,7 +139,7 @@ static void *New_Ctrl (struct GMT_CTRL *GMT) {	/* Allocate and initialize a new 
 	return (C);
 }
 
-void Free_Ctrl (struct GRDSLICE_CTRL *C) {	/* Deallocate control structure */
+void Free_Ctrl (struct GMT_CTRL *GMT, struct GRDSLICE_CTRL *C) {	/* Deallocate control structure */
 	gmt_M_free (GMT, C);
 }
 
@@ -172,7 +172,7 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	const char *name = gmt_show_name_and_purpose (API, THIS_MODULE_LIB, THIS_MODULE_CLASSIC_NAME, THIS_MODULE_PURPOSE);
 	if (level == GMT_MODULE_PURPOSE) return (GMT_NOERROR);
 
-	GMT_Message (API, GMT_TIME_NONE, "usage: %s <grid> -C<cont_int> [-A<cutoff>] [-D<dumpfile>] [-I] [-L<Low/high>]\n", name);
+	GMT_Message (API, GMT_TIME_NONE, "usage: %s <grid> -C<cont_int> [-A<cutoff>] [-D<prefix>] [-I] [-L<Low/high>]\n", name);
 	GMT_Message (API, GMT_TIME_NONE, "\t-[Md|k] [-S<smooth>] [-T<bottom_level>/<area_cutoff>] [%s] [-Z[+s<scale>][+o<offset>]]\n\n", GMT_V_OPT);
 
 	if (level == GMT_SYNOPSIS) return (GMT_MODULE_SYNOPSIS);
@@ -181,7 +181,7 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	GMT_Message (API, GMT_TIME_NONE, "\t-C Contours slice interval.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\n\tOPTIONS:\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-A Skip peaks that are within <cutoff> km from a larger seamount [no skipping].\n");
-	GMT_Message (API, GMT_TIME_NONE, "\t-D Sets filename stem for output files (XXX_slices.txt and XXX_pos.txt) [SMT].\n");
+	GMT_Message (API, GMT_TIME_NONE, "\t-D Sets filename prefix for output files (<prefix>_slices.txt and <prefix>_pos.txt) [SMT].\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-I Invert Mercator coordinates on output (gives lon, lat).\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-L Limit contours to this range [Default is -L0/inf].\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-M Specify the unit of the coordinates of the input grid (default: Mercator)\n");
@@ -189,7 +189,7 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	GMT_Message (API, GMT_TIME_NONE, "\t-S Smooth contours by interpolation at approximately gridsize/<smooth> intervals.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t-T Specify the bottom level of contouring <bottom_level> and ignore\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t   contours whose area are less than <area_cutoff> in km^2\n");
-	GMT_Message (API, GMT_TIME_NONE, "\t   With -D, it will write XXX_bottom.txt and XXX_indices.txt.\n");
+	GMT_Message (API, GMT_TIME_NONE, "\t   With -D, it will write <prefix>_bottom.txt and <prefix>_indices.txt.\n");
 	GMT_Message (API, GMT_TIME_NONE, "\t   With -L, the bottom must be equal or larger than the low value.\n");
 	GMT_Option (API, "V");
 	GMT_Message (API, GMT_TIME_NONE, "\t-Z Subtract <shift> (via +o<shift> [0]) and multiply data by <fact> (via +s<fact> [1]).\n");
@@ -198,7 +198,7 @@ static int usage (struct GMTAPI_CTRL *API, int level) {
 	return (GMT_MODULE_USAGE);
 }
 
-static int parse (struct GMT_CTRL *GMT, struct GRDCONTOUR_CTRL *Ctrl, struct GMT_OPTION *options) {
+static int parse (struct GMT_CTRL *GMT, struct GRDSLICE_CTRL *Ctrl, struct GMT_OPTION *options) {
 	unsigned int n_errors = 0, n_files = 0, pos = 0;
 	int j;
 	char p[GMT_LEN64] = {""};
@@ -290,8 +290,8 @@ static int parse (struct GMT_CTRL *GMT, struct GRDCONTOUR_CTRL *Ctrl, struct GMT
 #define bailout(code) {gmt_M_free_options (mode); return (code);}
 #define Return(code) {Free_Ctrl (GMT, Ctrl); gmt_end_module (GMT, GMT_cpy); bailout (code);}
 
-EXTERN_MSC int GMT_grdsslice (void *V_API, int mode, void *args) {
-	bool error = false, begin = true, inside, *skip = NULL;
+EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
+	bool begin = true, inside, *skip = NULL;
 
 	int error, n_skipped = 0, kp_id = 0, cs;
 
@@ -398,19 +398,19 @@ EXTERN_MSC int GMT_grdsslice (void *V_API, int mode, void *args) {
 	}
 
 	contour = gmt_M_memory (GMT, contour, n_contours, double);
-	slice = gmt_M_memory (GMT, NULL, n_contours, struct GRDSLICE_SLICE *);
-	last = gmt_M_memory (GMT, NULL, n_contours, struct GRDSLICE_SLICE *);
-	smt = gmt_M_memory (GMT, NULL, n_alloc, struct GRDSLICE_SMT *);
-
 	/* Because we are doing single-precision, we cannot subtract incrementally but must start with the
 	 * original grid values and subtract the current contour value. */
 	 
 	if ((G_orig = GMT_Duplicate_Data (API, GMT_IS_GRID, GMT_DUPLICATE_DATA, G)) == NULL) {
-		gmt_M_free (GMT, cont);
+		gmt_M_free (GMT, contour);
 		Return (GMT_RUNTIME_ERROR); /* Original copy of grid used for contouring */
 	}
 
-	for (cs = int(n_contours-1); cs >= 0; cs--) {	/* For each contour value cval but starting from the top */
+	slice = gmt_M_memory (GMT, NULL, n_contours, struct GRDSLICE_SLICE *);
+	last = gmt_M_memory (GMT, NULL, n_contours, struct GRDSLICE_SLICE *);
+	smt = gmt_M_memory (GMT, NULL, n_alloc, struct GRDSLICE_SMT *);
+
+	for (cs = (int)(n_contours-1); cs >= 0; cs--) {	/* For each contour value cval but starting from the top */
 		c = (unsigned int)cs;
 
 		/* Reset markers and set up new zero-contour*/
@@ -489,7 +489,7 @@ EXTERN_MSC int GMT_grdsslice (void *V_API, int mode, void *args) {
 				A[3] += y[i] * y[i];
 			} 
 			A[2] = A[1];
-			if (gmt_jacobi (GMT, A, &M, &M, EigenValue, EigenVector, work1, work2, &nrots)) {	/* Solve eigen-system A = EigenVector * EigenValue * EigenVector^T */
+			if (gmt_jacobi (GMT, A, M, M, EigenValue, EigenVector, work1, work2, &nrots)) {	/* Solve eigen-system A = EigenVector * EigenValue * EigenVector^T */
 				GMT_Report (API, GMT_MSG_WARNING, "Eigenvalue routine failed to converge in 50 sweeps.\n");
 			}
 			aspect = sqrt (EigenValue[0] / EigenValue[1]);	/* Major/minor aspect ratio */
