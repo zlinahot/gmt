@@ -62,7 +62,7 @@ Optional Arguments
 .. _-D:
 
 **-D**\ *prefix*
-    Set the filename *prefix* for the two output files (*prefix*_slices.txt and *prefix*_pos.txt) [SMT].
+    Set the filename *prefix* for the two output files (*prefix*\ _slices.txt and *prefix*\ _pos.txt) [SMT].
 
 .. _-I:
 
@@ -89,7 +89,7 @@ Optional Arguments
 **-T**\ *bottom_level*/*area_cutoff*
     Specify the bottom level of contouring as *bottom_level* and ignore contours whose area are less
     than *area_cutoff* in km^2 (or user units for Cartesian grids).  With **-D**, we will write
-    *prefix*_bottom.txt and *prefix*_indices.txt files as well. If **-L** is used, the *bottom_level*
+    *prefix*\ _bottom.txt and *prefix*\ _indices.txt files as well. If **-L** is used, the *bottom_level*
     must be equal or larger than the *low* value.
 
 .. _-Z:
@@ -99,6 +99,7 @@ Optional Arguments
     *factor* before contouring starts [1/0]. (Numbers in **-C**, **-L**
     and **-T** refer to values *after* this scaling has occurred.)
 
+.. |Add_-f| unicode:: 0x20 .. just an invisible code
 .. include:: ../../explain_-f.rst_
 
 .. |Add_-V| unicode:: 0x20 .. just an invisible code
@@ -117,10 +118,20 @@ To slice the grid gravity_smts.grd every 0.1 mGal and write results to files cal
 
     grdslice gravity_smts.grd -C0.1 -DX -V
 
+References
+----------
+
+Kim, S.-S., and P. Wessel (2011), New global seamount census from altimetry-derived gravity data,
+*Geophys. J. Int., 186*, 615-631,
+`http://dx.doi.org/10.1111/j.1365-246X.2011.05076.x <http://dx.doi.org/10.1111/j.1365-246X.2011.05076.x>`_.
+
+Wessel, P., D. T. Sandwell, and S.-S. Kim (2010), The global seamount census, *Oceanography, 23(1)*, 24-33,
+`http://dx.doi.org/10.5670/oceanog.2010.60 <http://dx.doi.org/10.5670/oceanog.2010.60>`_.
+
 See Also
 --------
 
 :doc:`gmt.conf </gmt.conf>`, :doc:`gmt </gmt>`,
 :doc:`grdcontour </grdcontour>`,
 :doc:`grdmath </grdmath>`,
-:doc:`gravfft </supplements/potential/grdseamounts>`
+:doc:`grdseamount </supplements/potential/grdseamount>`

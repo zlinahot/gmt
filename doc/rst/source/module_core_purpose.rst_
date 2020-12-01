@@ -154,9 +154,9 @@
 
 .. |psconvert_purpose| replace:: Convert [E]PS file(s) to other formats using Ghostscript
 
-.. |events_purpose| replace:: Plot event symbols and labels for a moment in time
+.. |events_purpose| replace:: Plot event symbols, lines, polygons and labels for a moment in time
 
-.. |psevents_purpose| replace:: Plot event symbols and labels for a moment in time
+.. |psevents_purpose| replace:: Plot event symbols, lines, polygons and labels for a moment in time
 
 .. |histogram_purpose| replace:: Calculate and plot histograms
 
