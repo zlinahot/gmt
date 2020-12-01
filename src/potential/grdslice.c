@@ -274,7 +274,7 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 	uint64_t ij, n, i, n_alloc = GMT_CHUNK;
 	int64_t ns;
 
-	char file[PATH_MAX] = {""};
+	char file[PATH_MAX] = {""}, bfile[PATH_MAX] = {""}, kfile[PATH_MAX] = {""};
 	
 	FILE *fp = NULL, *tp = NULL, *kp = NULL;
 
@@ -597,14 +597,14 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 	}
 	
 	if (Ctrl->T.active) {
-		sprintf (file, "%s_bottom.txt", Ctrl->D.file);
-		if ((tp = fopen (file, "w")) == NULL) {
-			GMT_Report (API, GMT_MSG_ERROR, "Unable to create file %s\n", file);
+		sprintf (bfile, "%s_bottom.txt", Ctrl->D.file);
+		if ((tp = fopen (bfile, "w")) == NULL) {
+			GMT_Report (API, GMT_MSG_ERROR, "Unable to create file %s\n", bfile);
 			Return (EXIT_FAILURE);
 		}
-		sprintf (file, "%s_indices.txt", Ctrl->D.file);
-		if ((kp = fopen (file, "w")) == NULL) {
-			GMT_Report (API, GMT_MSG_ERROR, "Unable to create file %s\n", file);
+		sprintf (kfile, "%s_indices.txt", Ctrl->D.file);
+		if ((kp = fopen (kfile, "w")) == NULL) {
+			GMT_Report (API, GMT_MSG_ERROR, "Unable to create file %s\n", kfile);
 			Return (EXIT_FAILURE);
 		}
 	}
@@ -616,7 +616,7 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 			out[0] = poly->x_mean;	out[1] = poly->y_mean;
 			if (Ctrl->I.active) gmt_xy_to_geo (GMT, &out[0], &out[1], out[0] + merc_x0, out[1] + merc_y0);	/* Get lon, lat */
 			fprintf (fp, "> -Z%g -L%g -N%d -S%g/%g/%g/%g/%g/%g\n", poly->area, poly->z, poly->shared, out[0], out[1], poly->azimuth, poly->major, poly->minor, poly->fit);
-			if (Ctrl->T.active && poly->z == Ctrl->T.blevel && poly->area >= Ctrl->T.acutoff) {
+			if (Ctrl->T.active && doubleAlmostEqualZero (poly->z, Ctrl->T.blevel) && poly->area >= Ctrl->T.acutoff) {
 				kp_id++;
 				fprintf (tp, "> %d -Z%g -L%g -N%d -S%g/%g/%g/%g/%g/%g\n", kp_id, poly->area, poly->z, poly->shared, out[0], out[1], poly->azimuth, poly->major, poly->minor, poly->fit);
 				/* indices file format: lon lat x y id */
@@ -627,7 +627,7 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 				out[0] = poly->x[i];	out[1] = poly->y[i];	out[2] = poly->z;
 				if (Ctrl->I.active) gmt_xy_to_geo (GMT, &out[0], &out[1], out[0] + merc_x0, out[1] + merc_y0);	/* Get lon, lat */
 				GMT->current.io.output (GMT, fp, 3, out, NULL);
-				if (Ctrl->T.active && poly->z == Ctrl->T.blevel && poly->area >= Ctrl->T.acutoff)
+				if (Ctrl->T.active && doubleAlmostEqualZero (poly->z, Ctrl->T.blevel) && poly->area >= Ctrl->T.acutoff)
 					GMT->current.io.output (GMT, tp, 3, out, NULL);
 			}
 			this_slice = poly;
@@ -639,11 +639,17 @@ EXTERN_MSC int GMT_grdslice (void *V_API, int mode, void *args) {
 		}
 	}
     fclose (fp);
+
 	if (Ctrl->T.active) {
 		fclose (tp);
 		fclose (kp);
+		if (kp_id == 0) {
+			GMT_Report (API, GMT_MSG_WARNING, "No seamount bottoms or indices written to %s and %s despite -T being set\n", bfile, kfile);
+			gmt_remove_file (GMT, bfile);
+			gmt_remove_file (GMT, kfile);
+		}
 	}
-	
+
 	gmt_M_free (GMT, edge);
 	gmt_M_free (GMT, contour);
 	gmt_M_free (GMT, slice);
