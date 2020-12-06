@@ -3592,10 +3592,6 @@ GMT_LOCAL int gmtinit_set_titem (struct GMT_CTRL *GMT, struct GMT_PLOT_AXIS *A, 
 	if (A->type == GMT_TIME) {	/* Strict check on time intervals */
 		if (gmtlib_verify_time_step (GMT, irint (val), unit))
 			return GMT_PARSE_ERROR;
-		if ((fmod (val, 1.0) > GMT_CONV8_LIMIT)) {
-			GMT_Report (GMT->parent, GMT_MSG_ERROR, "Time step interval (%g) must be an integer\n", val);
-			return GMT_NOT_A_VALID_TYPE;
-		}
 	}
 
 	switch (unit) {	/* Determine if we have intervals or moments */
@@ -14411,7 +14407,7 @@ struct GMT_CTRL *gmt_init_module (struct GMTAPI_CTRL *API, const char *lib_name,
 					API->GMT->hidden.func_level = level;	/* Reset to what it should be */
 					if (GMT->common.R.oblique) {	/* Must do gmt_mapsetup here to get correct region for building tiles */
 						if (!opt_J) {
-							GMT_Report (API, GMT_MSG_DEBUG, "Cannot select %s and an oblique region without -J!\n", opt->arg);
+							GMT_Report (API, GMT_MSG_ERROR, "Cannot select %s and an oblique region without -J!\n", opt->arg);
 							return NULL;
 						}
 						GMT->common.J.active = GMT->common.R.active[RSET] = true;	/* Since we have set those here */
