@@ -17,9 +17,7 @@ Synopsis
 |-C|\ *interval*
 [ |-A| ]
 [ |-D|\ [*prefix*] ]
-[ |-I| ]
 [ |-L|\ *low/high* ]
-[ |-M| ]
 [ |-S|\ *smoothfactor* ]
 [ |-T|\ *bottom_level*/*area_cutoff* ]
 [ |SYN_OPT-V| ]
@@ -32,17 +30,21 @@ Synopsis
 Description
 -----------
 
-**grdslice** reads a binary 2-D grid and contour-slices the surface using the selected contour
-interval, starting from the max value and moving down to lower values.  As new contours are found,
-their centers are considered the peak location of a new seamount, and we trace the hierarchy of how
-each new slice belongs to groups of previously detected seamounts.  Slices are compared to ellipses
-and their major and major axes and orientations are computed. Information are written to two separate data files.
+**grdslice** is used to determine local *peaks* in the grid.  To do so, it reads a binary 2-D
+grid and contour-slices the surface using the selected constant contour interval,
+starting from the max value and moving down to lower and lower values.  As new contours are found,
+their centers are considered the location of a new peak, and we trace the hierarchy of how
+each new slice belongs to groups of previously detected peaks.  Slice shapes are equated to ellipses
+and their major and major axes and orientations are computed. Information are written to two separate
+data files.
 
 Required Arguments
 ------------------
 
 *grid*
-    2-D gridded data set to be sliced. (See GRID FILE FORMATS below).
+    2-D gridded data set to be sliced. (See GRID FILE FORMATS below). We automatically detect if this
+    grid is geographic or in spherical Mercator units (such as created by :doc:`img2grd </supplements/img/img2grd>`.
+    If plain Cartesian you may need to use modifiers to convert horizontal distance units to km.
 
 .. _-C:
 
@@ -56,28 +58,18 @@ Optional Arguments
 .. _-A:
 
 **-A**
-    Examine the seamount locations found and skip those that fall within *cutoff* km from another
-    seamount with a larger amplitude [no skipping].
+    Examine the peak locations found and skip those that fall within *cutoff* km from another
+    peak with a larger amplitude [no skipping].
 
 .. _-D:
 
 **-D**\ *prefix*
-    Set the filename *prefix* for the two output files (*prefix*\ _slices.txt and *prefix*\ _pos.txt) [SMT].
-
-.. _-I:
-
-**-I**
-    Invert Mercator coordinates to recover longitude, latitude on output.  Requires **-M**.
+    Set the filename *prefix* for the two output files (*prefix*\ _slices.txt and *prefix*\ _pos.txt) [PEAK].
 
 .. _-L:
 
 **-L**\ *low/high*
     Limit range: Only do the contour slicing within the specified range of contours [use he entire range].
-
-.. _-M:
-
-**-M**
-    Input *grid* is in Mercator coordinates [Default is either geographic or Cartesian].
 
 .. _-S:
 
@@ -134,4 +126,5 @@ See Also
 :doc:`gmt.conf </gmt.conf>`, :doc:`gmt </gmt>`,
 :doc:`grdcontour </grdcontour>`,
 :doc:`grdmath </grdmath>`,
-:doc:`grdseamount </supplements/potential/grdseamount>`
+:doc:`grdseamount </supplements/potential/grdseamount>`,
+:doc:`img2grd </supplements/img/img2grd>`

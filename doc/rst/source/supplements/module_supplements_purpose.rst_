@@ -44,7 +44,7 @@
 
 .. |grdseamount_purpose| replace:: Create synthetic seamounts (Gaussian, parabolic, cone or disc, circular or elliptical)
 
-.. |grdslice_purpose| replace:: Detect isolated seamounts by contour-slicing a grid
+.. |grdslice_purpose| replace:: Detect isolated peaks by contour-slicing a grid
 
 .. |talwani2d_purpose| replace:: Compute geopotential anomalies over 2-D bodies by the method of Talwani
 
