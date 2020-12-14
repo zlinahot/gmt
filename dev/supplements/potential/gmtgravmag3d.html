@@ -224,9 +224,8 @@
 <p>Compute the gravity/magnetic anomaly of a 3-D body by the method of Okabe</p>
 <div class="section" id="synopsis">
 <h2>Synopsis<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h2>
-<p><strong>gmt gravmag3d</strong> <a class="reference internal" href="#t"><span> <strong>-T</strong></span></a></strong><strong>p</strong><em>xyz_file</em>[<strong>+m</strong>] <a class="reference internal" href="#t"><span> <strong>-T</strong></span></a></strong><strong>v</strong><em>vert_file</em> OR <a class="reference internal" href="#t"><span> <strong>-T</strong></span></a></strong><strong>r|s</strong><em>raw_file</em>
+<p><strong>gmt gravmag3d</strong> <em>xyz_file</em> <a class="reference internal" href="#t"><span> <strong>-T</strong></span></a></strong><strong>v</strong><em>vert_file</em> OR <a class="reference internal" href="#t"><span> <strong>-T</strong></span></a></strong><strong>r|s</strong><em>raw_file</em>
 [ <a class="reference internal" href="#c"><span> <strong>-C</strong></span></a></strong><em>density</em> ]
-[ <a class="reference internal" href="#d"><span> <strong>-D</strong></span></a></strong> ]
 [ <a class="reference internal" href="#e"><span> <strong>-E</strong></span></a></strong><em>thickness</em> ]
 [ <a class="reference internal" href="#f"><span> <strong>-F</strong></span></a></strong><em>xy_file</em> ]
 [ <a class="reference internal" href="#g"><span> <strong>-G</strong></span></a></strong><em>outputgrid</em> ]
@@ -241,10 +240,9 @@
 </div>
 <div class="section" id="description">
 <h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
-<p><strong>gravmag3d</strong> will compute the gravity or magnetic anomaly of a body
-described by a set of triangles. The output can either be along a given
-set of xy locations or on a grid. This method is not particularly fast
-but allows computing the anomaly of arbitrarily complex shapes.</p>
+<p><strong>gravmag3d</strong> will compute the gravity or magnetic anomaly of a body described by a set of triangles.
+The output can either be along a given set of xy locations or on a grid. This method is not particularly
+fast but allows computing the anomaly of arbitrarily complex shapes.</p>
 </div>
 <div class="section" id="required-arguments">
 <h2>Required Arguments<a class="headerlink" href="#required-arguments" title="Permalink to this headline">¶</a></h2>
@@ -253,9 +251,8 @@ but allows computing the anomaly of arbitrarily complex shapes.</p>
 </dd>
 </dl>
 <dl class="simple" id="h">
-<dt><strong>-H</strong><em>f_dec</em>/<em>f_dip</em>/<em>m_int</em>/<em>m_dec</em>/<em>m_dip</em></dt><dd><p>Sets parameters for computing a magnetic anomaly. Use
-<em>f_dec</em>/<em>f_dip</em> to set the geomagnetic declination/inclination in
-degrees. <em>m_int</em>/<em>m_dec</em>/<em>m_dip</em> are the body magnetic intensity
+<dt><strong>-H</strong><em>f_dec</em>/<em>f_dip</em>/<em>m_int</em>/<em>m_dec</em>/<em>m_dip</em></dt><dd><p>Sets parameters for computing a magnetic anomaly. Use <em>f_dec</em>/<em>f_dip</em> to set the geomagnetic
+declination/inclination in degrees. <em>m_int</em>/<em>m_dec</em>/<em>m_dip</em> are the body magnetic intensity
 declination and inclination.</p>
 </dd>
 </dl>
@@ -273,15 +270,15 @@ option is mutually exclusive with <strong>-G</strong>.</p>
 </dd>
 </dl>
 <dl class="simple" id="t">
-<dt><strong>-Tp</strong><em>xyz_file</em>[<strong>+m</strong>] <strong>-Tv</strong><em>vert_file</em> OR <strong>Tr|s</strong><em>raw_file</em></dt><dd><p>Gives names of xyz (<strong>-Tp</strong><em>xyz_file</em>[<strong>+m</strong>]) and vertex (<strong>-Tv</strong><em>vert_file</em>) files defining a close surface.
+<dt><strong>-Tv</strong><em>vert_file</em> (must have when passing a <em>xyz_file</em>) OR <strong>Tr|s</strong><em>raw_file</em></dt><dd><p>Gives names of a xyz and vertex (<strong>-Tv</strong><em>vert_file</em>) files defining a close surface.
 The file formats correspond to the output of the <a class="reference internal" href="../../triangulate.html"><span class="doc">triangulate</span></a> program.
-The optional <strong>+m</strong> flag to <strong>-Tp</strong> instructs the program that the xyzm file
-has four columns and that the fourth column contains the magnetization intensity (plus signal),
-which needs not to be constant. In this case the third argument of the <strong>-H</strong> option is
-ignored. A <em>raw</em> format (selected by the <strong>-Tr</strong> option) is a file with N rows (one per triangle)
-and 9 columns corresponding to the x,y,x coordinates of each of the three vertex of each triangle.
-Alternatively, the <strong>-Ts</strong> option indicates that the surface file is in the ASCII STL (Stereo Lithographic) format.
-These two type of files are used to provide a closed surface.</p>
+The <em>xyz</em> file can have 3, 4, 5, 6 or 8 columns. In first case (3 columns) the magnetization (or density) are
+assumed constant (controlled by <strong>-C</strong> or <strong>-H</strong>). Following cases are: 4 columns -&gt; 4rth col magnetization intensity;
+5 columns: mag, mag dip; 6 columns: mag, mag dec, mag dip; 8 columns: field dec, field dip, mag, mag dec, mag dip.
+When n columns &gt; 3 the third argument of the <strong>-H</strong> option is ignored. A <em>raw</em> format (selected by the <strong>-Tr</strong> option)
+is a file with N rows (one per triangle) and 9 columns corresponding to the x,y,x coordinates of each of the three
+vertex of each triangle. Alternatively, the <strong>-Ts</strong> option indicates that the surface file is in the ASCII STL
+(Stereo Lithographic) format. These two type of files are used to provide a closed surface.</p>
 </dd>
 </dl>
 </div>
@@ -382,7 +379,7 @@ polyhedral bodies and translation into magnetic anomalies, <em>Geophysics</em>,
         
         &copy; Copyright 2020, The GMT Team.
       <span class="lastupdated">
-        Last updated on Dec 02, 2020.
+        Last updated on Dec 14, 2020.
       </span>
 
     </p>

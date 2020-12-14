@@ -233,14 +233,16 @@
 [ <a class="reference internal" href="#f"><span> <strong>-F</strong></span></a></strong>[<strong>+a</strong>[<em>angle</em>]][<strong>+c</strong>[<em>justify</em>]][<strong>+f</strong>[<em>font</em>]][<strong>+j</strong>[<em>justify</em>]][<strong>+h</strong>|<strong>l</strong>|<strong>r</strong>[<em>first</em>] |<strong>t</strong><em>text</em>|<strong>z</strong>[<em>format</em>]] ]
 [ <a class="reference internal" href="#g"><span> <strong>-G</strong></span></a></strong>[<em>fill</em>][<strong>+n</strong>] ]
 [ <a class="reference internal" href="#k"><span> <strong>-K</strong></span></a></strong> ]
-[ <a class="reference internal" href="#l"><span> <strong>-L</strong></span></a></strong> ] [ <a class="reference internal" href="#m"><span> <strong>-M</strong></span></a></strong> ] [ <a class="reference internal" href="#n"><span> <strong>-N</strong></span></a></strong> ] [ <a class="reference internal" href="#o"><span> <strong>-O</strong></span></a></strong> ] [ <a class="reference internal" href="#p"><span> <strong>-P</strong></span></a></strong> ]
+[ <a class="reference internal" href="#l"><span> <strong>-L</strong></span></a></strong> ] [ <a class="reference internal" href="#m"><span> <strong>-M</strong></span></a></strong> ] [ <a class="reference internal" href="#n"><span> <strong>-N</strong></span></a></strong> ]
+[ <a class="reference internal" href="#o"><span> <strong>-O</strong></span></a></strong> ] [ <a class="reference internal" href="#p"><span> <strong>-P</strong></span></a></strong> ]
 [ <a class="reference internal" href="#q"><span> <strong>-Q</strong></span></a></strong><strong>l</strong>|<strong>u</strong> ]
 [ <a class="reference internal" href="#u"><span> <strong>-U</strong></span></a></strong>[<em>stamp</em>] ]
 [ <a class="reference internal" href="#v"><span> <strong>-V</strong></span></a></strong>[<em>level</em>] ]
 [ <a class="reference internal" href="#w"><span> <strong>-W</strong></span></a></strong><em>pen</em> ]
 [ <a class="reference internal" href="#x"><span> <strong>-X</strong></span></a></strong>[<strong>a</strong>|<strong>c</strong>|<strong>f</strong>|<strong>r</strong>][<em>xshift</em>] ]
 [ <a class="reference internal" href="#y"><span> <strong>-Y</strong></span></a></strong>[<strong>a</strong>|<strong>c</strong>|<strong>f</strong>|<strong>r</strong>][<em>yshift</em>] ]
-[ <a class="reference internal" href="#z"><span> <strong>-Z</strong></span></a></strong> ] [ <strong>-a</strong><em>col</em>=<em>name</em>[…] ]
+[ <a class="reference internal" href="#z"><span> <strong>-Z</strong></span></a></strong> ]
+[ <strong>-a</strong><em>col</em>=<em>name</em>[…] ]
 [ <strong>-e</strong><a class="reference internal" href="gmt.html#e-full"><span class="std std-ref">regexp</span></a> ]
 [ <strong>-f</strong><a class="reference internal" href="gmt.html#f-full"><span class="std std-ref">flags</span></a> ]
 [ <strong>-h</strong><a class="reference internal" href="gmt.html#h-full"><span class="std std-ref">headers</span></a> ]
@@ -434,7 +436,8 @@ leaves all text as is].</p>
 <dl class="simple" id="z">
 <dt><strong>-Z</strong></dt><dd><p>For 3-D projections: expect each item to have its own level given in
 the 3rd column, and <strong>-N</strong> is implicitly set. (Not implemented for
-paragraph mode).</p>
+paragraph mode).  <strong>Note</strong>: If <strong>-F+z</strong> is used then the text level
+is based on the 4th data column instead.</p>
 </dd>
 </dl>
 <dl class="simple">
@@ -630,7 +633,7 @@ trailing text.</p>
         
         &copy; Copyright 2020, The GMT Team.
       <span class="lastupdated">
-        Last updated on Dec 02, 2020.
+        Last updated on Dec 14, 2020.
       </span>
 
     </p>

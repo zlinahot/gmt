@@ -377,7 +377,9 @@ reference point for all groups.</p>
 Note that this module will search for <strong>-G</strong> and <strong>-W</strong> strings in all the
 segment headers and let any values thus found over-ride the command line settings.
 If <strong>-Z</strong> is set, use <strong>-G+z</strong> to assign fill color via <strong>-C</strong><em>cpt</em> and the
-<em>z</em>-values obtained.</p>
+<em>z</em>-values obtained. Finally, if <em>fill</em> = <em>auto</em>[<em>-segment</em>] or <em>auto-table</em> then
+we will cycle through the fill colors implied by <a class="reference internal" href="gmt.conf.html#term-COLOR_SET"><span class="xref std std-term">COLOR_SET</span></a> and change on a per-segment
+or per-table basis.  Any <em>transparency</em> setting is unchanged.</p>
 </dd>
 </dl>
 <dl class="simple" id="i">
@@ -1012,7 +1014,9 @@ Because <strong>+v</strong> may take additional modifiers it must necessarily be
 at the end of the pen specification.
 See the <a class="reference internal" href="#vector-attributes">Vector Attributes</a> for more information.
 If <strong>-Z</strong> is set, then append <strong>+z</strong> to <strong>-W</strong> to assign pen color via <strong>-C</strong><em>cpt</em> and the
-<em>z</em>-values obtained.</p>
+<em>z</em>-values obtained.  Finally, if pen <em>color</em> = <em>auto</em>[<em>-segment</em>] or <em>auto-table</em> then
+we will cycle through the pen colors implied by <a class="reference internal" href="gmt.conf.html#term-COLOR_SET"><span class="xref std std-term">COLOR_SET</span></a> and change on a per-segment
+or per-table basis.  The <em>width</em>, <em>style</em>, or <em>transparency</em> settings are unchanged.</p>
 </dd>
 </dl>
 <p id="x"><strong>-X</strong>[<strong>a</strong>|<strong>c</strong>|<strong>f</strong>|<strong>r</strong>][<em>xshift</em>]</p>
@@ -1412,7 +1416,7 @@ features such as decorated and quoted lines, fronts, etc.</p>
         
         &copy; Copyright 2020, The GMT Team.
       <span class="lastupdated">
-        Last updated on Dec 02, 2020.
+        Last updated on Dec 14, 2020.
       </span>
 
     </p>

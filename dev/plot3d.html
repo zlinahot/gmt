@@ -251,6 +251,7 @@
 [ <strong>-g</strong><a class="reference internal" href="gmt.html#g-full"><span class="std std-ref">gaps</span></a> ]
 [ <strong>-h</strong><a class="reference internal" href="gmt.html#h-full"><span class="std std-ref">headers</span></a> ]
 [ <strong>-i</strong><a class="reference internal" href="gmt.html#icols-full"><span class="std std-ref">flags</span></a> ]
+[ <strong>-l</strong><a class="reference internal" href="gmt.html#l-full"><span class="std std-ref">flags</span></a> ]
 [ <strong>-p</strong><a class="reference internal" href="gmt.html#perspective-full"><span class="std std-ref">flags</span></a> ]
 [ <strong>-qi</strong><a class="reference internal" href="gmt.html#qi-full"><span class="std std-ref">flags</span></a> ]
 [ <strong>-t</strong><a class="reference internal" href="text.html#tv-full"><span class="std std-ref">transp</span></a> ]
@@ -340,7 +341,9 @@ then we select the current CPT.</p>
 Note that the module will search for <strong>-G</strong> and <strong>-W</strong> strings in all the
 segment headers and let any values thus found over-ride the command line settings.
 If <strong>-Z</strong> is set, use <strong>-G+z</strong> to assign fill color via <strong>-C</strong><em>cpt</em> and the
-<em>z</em>-values obtained.</p>
+<em>z</em>-values obtained.  Finally, if <em>fill</em> = <em>auto</em>[<em>-segment</em>] or <em>auto-table</em> then
+we will cycle through the fill colors implied by <a class="reference internal" href="gmt.conf.html#term-COLOR_SET"><span class="xref std std-term">COLOR_SET</span></a> and change on a per-segment
+or per-table basis.  Any <em>transparency</em> setting is unchanged.</p>
 </dd>
 </dl>
 <dl class="simple" id="i">
@@ -977,7 +980,9 @@ is appended then the color of the line are taken from the CPT (see
 <strong>-C</strong>). If instead modifier <strong>+cf</strong> is appended then the color from the cpt
 file is applied to symbol fill.  Use just <strong>+c</strong> for both effects.
 If <strong>-Z</strong> is set, then append <strong>+z</strong> to <strong>-W</strong> to assign pen color via <strong>-C</strong><em>cpt</em> and the
-<em>z</em>-values obtained.</p>
+<em>z</em>-values obtained.  Finally, if pen <em>color</em> = <em>auto</em>[<em>-segment</em>] or <em>auto-table</em> then
+we will cycle through the pen colors implied by <a class="reference internal" href="gmt.conf.html#term-COLOR_SET"><span class="xref std std-term">COLOR_SET</span></a> and change on a per-segment
+or per-table basis.  The <em>width</em>, <em>style</em>, or <em>transparency</em> settings are unchanged.</p>
 </dd>
 </dl>
 <p id="x"><strong>-X</strong>[<strong>a</strong>|<strong>c</strong>|<strong>f</strong>|<strong>r</strong>][<em>xshift</em>]</p>
@@ -1022,6 +1027,10 @@ To apply the color obtain to a fill, use <strong>-G+z</strong>; to apply it to t
 </dl>
 <dl class="simple">
 <dt><strong>-i</strong><em>cols</em>[<strong>+l</strong>][<strong>+s</strong><em>scale</em>][<strong>+o</strong><em>offset</em>][,<em>…</em>][,<strong>t</strong>[<em>word</em>]] <a class="reference internal" href="gmt.html#icols-full"><span class="std std-ref">(more …)</span></a></dt><dd><p>Select input columns and transformations (0 is first column, <strong>t</strong> is trailing text, append <em>word</em> to read one word only).</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt><strong>-l</strong>[<em>label</em>][<strong>+D</strong><em>pen</em>][<strong>+G</strong><em>gap</em>][<strong>+H</strong><em>header</em>][<strong>+L</strong>[<em>code</em>/]<em>txt</em>][<strong>+N</strong><em>cols</em>][<strong>+S</strong><em>size</em>[/<em>height</em>]][<strong>+V</strong>[<em>pen</em>]][<strong>+f</strong><em>font</em>][<strong>+g</strong><em>fill</em>][<strong>+j</strong><em>just</em>][<strong>+o</strong><em>off</em>][<strong>+p</strong><em>pen</em>][<strong>+s</strong><em>scale</em>][<strong>+w</strong><em>width</em>] <a class="reference internal" href="gmt.html#l-full"><span class="std std-ref">(more …)</span></a></dt><dd><p>Add a legend entry for the symbol or line being plotted.  </p>
 </dd>
 </dl>
 <dl class="simple">
@@ -1309,7 +1318,7 @@ original polygon.</p>
         
         &copy; Copyright 2020, The GMT Team.
       <span class="lastupdated">
-        Last updated on Dec 02, 2020.
+        Last updated on Dec 14, 2020.
       </span>
 
     </p>
